@@ -125,6 +125,10 @@ function wcss_enqueue_assets() {
         WCSS_VERSION
     );
 
+    if (!empty($options['custom_css'])) {
+        wp_add_inline_style('wcss-frontend', wp_strip_all_tags($options['custom_css']));
+    }
+
     wp_enqueue_script(
         'wcss-frontend',
         WCSS_PLUGIN_URL . 'assets/js/smartsearch.js',
@@ -318,6 +322,7 @@ function wcss_get_options() {
             'recommendations_enabled'    => 1,
             'recommendations_days'       => 180,
             'recommendations_min_orders' => 2,
+            'custom_css'                 => '',
         ];
         $saved = get_option('wcss_options', []);
         $options = wp_parse_args($saved, $defaults);

@@ -95,6 +95,7 @@ class WCSS_Admin {
         $sanitized['recommendations_enabled']    = !empty($input['recommendations_enabled']) ? 1 : 0;
         $sanitized['recommendations_days']       = max(30, intval($input['recommendations_days'] ?? 180));
         $sanitized['recommendations_min_orders'] = max(1, intval($input['recommendations_min_orders'] ?? 2));
+        $sanitized['custom_css']                 = wp_strip_all_tags($input['custom_css'] ?? '');
         return $sanitized;
     }
 

@@ -89,6 +89,13 @@ $tabs = [
                     <th><?php esc_html_e('Acquisti minimi correlazione', 'wc-smartsearch'); ?></th>
                     <td><input type="number" name="wcss_options[recommendations_min_orders]" value="<?php echo esc_attr($options['recommendations_min_orders']); ?>" min="1" max="100" class="small-text"></td>
                 </tr>
+                <tr>
+                    <th><?php esc_html_e('CSS personalizzato', 'wc-smartsearch'); ?></th>
+                    <td>
+                        <textarea name="wcss_options[custom_css]" rows="10" class="large-text code" placeholder="<?php esc_attr_e('.wcss-search-trigger { max-width: 300px; }', 'wc-smartsearch'); ?>"><?php echo esc_textarea($options['custom_css'] ?? ''); ?></textarea>
+                        <p class="description"><?php esc_html_e('Inserisci CSS personalizzato per modificare lo stile della barra di ricerca e dell\'overlay. Usa le classi con prefisso .wcss- per personalizzare i componenti.', 'wc-smartsearch'); ?></p>
+                    </td>
+                </tr>
             </table>
             <?php submit_button(__('Salva Impostazioni', 'wc-smartsearch')); ?>
         </form>

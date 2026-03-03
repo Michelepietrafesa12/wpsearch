@@ -213,7 +213,8 @@ function wcss_shortcode_trigger($atts) {
 
     $classes = 'wcss-search-trigger';
     if (!empty($atts['class'])) {
-        $classes .= ' ' . sanitize_html_class($atts['class']);
+        $extra = array_map('sanitize_html_class', explode(' ', $atts['class']));
+        $classes .= ' ' . implode(' ', array_filter($extra));
     }
 
     $icon = '';

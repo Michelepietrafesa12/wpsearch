@@ -20,7 +20,9 @@ class WCSS_Installer {
 
         // Schedule cron events
         if (!wp_next_scheduled('wcss_calculate_correlations')) {
-            wp_schedule_event(strtotime('tomorrow 3:00am'), 'daily', 'wcss_calculate_correlations');
+            $local_time = strtotime('tomorrow 03:00:00', current_time('timestamp', false));
+            $utc_time   = $local_time - (int)(get_option('gmt_offset', 0) * HOUR_IN_SECONDS);
+            wp_schedule_event($utc_time, 'daily', 'wcss_calculate_correlations');
         }
         update_option('wcss_version', WCSS_VERSION);
         flush_rewrite_rules();
@@ -44,7 +46,7 @@ class WCSS_Installer {
         $sql = [];
 
         // Boosted products table
-        $sql[] = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wcss_boosted_products (
+        $sql[] = "CREATE TABLE {$wpdb->prefix}wcss_boosted_products (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             product_id BIGINT UNSIGNED NOT NULL,
             multiplier DECIMAL(3,1) DEFAULT 2.0,
@@ -60,7 +62,7 @@ class WCSS_Installer {
         ) {$charset_collate};";
 
         // Banners table
-        $sql[] = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wcss_banners (
+        $sql[] = "CREATE TABLE {$wpdb->prefix}wcss_banners (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             title VARCHAR(255) DEFAULT '',
             image_url VARCHAR(500) NOT NULL,
@@ -79,7 +81,7 @@ class WCSS_Installer {
         ) {$charset_collate};";
 
         // Synonyms table
-        $sql[] = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wcss_synonyms (
+        $sql[] = "CREATE TABLE {$wpdb->prefix}wcss_synonyms (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             word VARCHAR(100) NOT NULL,
             synonym VARCHAR(100) NOT NULL,
@@ -90,7 +92,7 @@ class WCSS_Installer {
         ) {$charset_collate};";
 
         // Correlations table
-        $sql[] = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wcss_correlations (
+        $sql[] = "CREATE TABLE {$wpdb->prefix}wcss_correlations (
             id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             product_id BIGINT UNSIGNED NOT NULL,
             correlated_product_id BIGINT UNSIGNED NOT NULL,
@@ -100,7 +102,7 @@ class WCSS_Installer {
             PRIMARY KEY (id),
             UNIQUE KEY uk_pair (product_id, correlated_product_id),
             INDEX idx_product (product_id),
-            INDEX idx_score (score DESC)
+            INDEX idx_score (score)
         ) {$charset_collate};";
 
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';

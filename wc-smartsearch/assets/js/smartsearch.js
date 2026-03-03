@@ -131,10 +131,14 @@
         var url = new URL(AJAX_URL, location.origin);
         url.searchParams.set('action', action);
         url.searchParams.set('nonce', NONCE);
+        var formParts = [];
+        Object.keys(body).forEach(function (k) {
+            if (body[k] !== '' && body[k] != null) formParts.push(encodeURIComponent(k) + '=' + encodeURIComponent(body[k]));
+        });
         return fetch(url.toString(), {
             method: 'POST', credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body), signal: opts.signal
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formParts.join('&'), signal: opts.signal
         }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
     }
 
@@ -399,18 +403,22 @@
         btn.disabled = true;
         var orig = btn.textContent;
 
-        var url = new URL(AJAX_URL, location.origin);
-        url.searchParams.set('action', 'woocommerce_add_to_cart');
-        url.searchParams.set('nonce', NONCE);
+        // Use WooCommerce's wc-ajax endpoint (not admin-ajax.php)
+        var url = location.origin + '/?wc-ajax=add_to_cart';
 
-        fetch(url.toString(), {
+        fetch(url, {
             method: 'POST', credentials: 'same-origin',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: 'product_id=' + encodeURIComponent(pid) + '&quantity=1'
-        }).then(function (r) { return r.json(); }).then(function () {
+        }).then(function (r) { return r.json(); }).then(function (data) {
+            if (data.error) { btn.disabled = false; btn.textContent = orig; return; }
             btn.classList.add('added');
             btn.textContent = I18N.added || 'Aggiunto!';
-            document.body.dispatchEvent(new Event('wc_fragment_refresh'));
+            // Trigger cart fragment refresh via jQuery (WooCommerce listens via jQuery events)
+            if (typeof jQuery !== 'undefined') {
+                jQuery(document.body).trigger('wc_fragment_refresh');
+                if (data.fragments) jQuery(document.body).trigger('added_to_cart', [data.fragments, data.cart_hash, jQuery(btn)]);
+            }
             setTimeout(function () { btn.disabled = false; btn.classList.remove('added'); btn.textContent = orig; }, 2000);
         }).catch(function () { btn.disabled = false; btn.textContent = orig; });
     }
@@ -588,10 +596,15 @@
         openMobile: function () {
             if (!D.mobileFilters || !D.mobileBody) return;
             this.mobileOpen = true;
-            // Clone desktop filter content into mobile panel (use cloneNode, not innerHTML)
+            // Clone desktop filter content into mobile panel, skip actions div (mobile has its own)
             D.mobileBody.innerHTML = '';
             Array.prototype.forEach.call(D.filtersSidebar.childNodes, function (node) {
+                if (node.nodeType === 1 && node.classList && node.classList.contains('wcss-filters-actions')) return;
                 D.mobileBody.appendChild(node.cloneNode(true));
+            });
+            // Re-attach title collapse/expand listeners lost during cloneNode
+            D.mobileBody.querySelectorAll('.wcss-filter-title').forEach(function (title) {
+                title.addEventListener('click', function () { title.parentNode.classList.toggle('collapsed'); });
             });
             D.mobileBackdrop.classList.add('active');
             D.mobileFilters.classList.add('active');

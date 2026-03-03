@@ -231,67 +231,27 @@ class WCSS_Engine {
         global $wpdb;
 
         $max_results = intval($options['max_results'] ?? 200);
+        $prepare_values = [];
 
-        // Build LIKE conditions for all variants
-        $where_conditions = [];
-        $like_params = [];
-
-        foreach ($expanded_words as $original => $variants) {
-            $word_conditions = [];
-            foreach ($variants as $variant) {
-                $like = '%' . $wpdb->esc_like($variant) . '%';
-                $word_conditions[] = "p.post_title LIKE %s";
-                $like_params[] = $like;
-                $word_conditions[] = "p.post_content LIKE %s";
-                $like_params[] = $like;
-                $word_conditions[] = "p.post_excerpt LIKE %s";
-                $like_params[] = $like;
-                $word_conditions[] = "pm_sku.meta_value LIKE %s";
-                $like_params[] = $like;
-            }
-            $where_conditions[] = '(' . implode(' OR ', $word_conditions) . ')';
-        }
-
-        // Also search in brand (taxonomy pa_brand or product_brand)
+        // Brand join
         $brand_join = "LEFT JOIN {$wpdb->term_relationships} tr_brand ON p.ID = tr_brand.object_id
                        LEFT JOIN {$wpdb->term_taxonomy} tt_brand ON tr_brand.term_taxonomy_id = tt_brand.term_taxonomy_id
                            AND tt_brand.taxonomy IN ('pa_brand', 'product_brand', 'pa_marca')
                        LEFT JOIN {$wpdb->terms} t_brand ON tt_brand.term_id = t_brand.term_id";
 
-        foreach ($expanded_words as $original => $variants) {
-            $brand_conds = [];
-            foreach ($variants as $variant) {
-                $like = '%' . $wpdb->esc_like($variant) . '%';
-                $brand_conds[] = "t_brand.name LIKE %s";
-                $like_params[] = $like;
-            }
-            if (!empty($brand_conds)) {
-                $last_idx = count($where_conditions) - 1;
-                $existing = $where_conditions[$last_idx] ?? '';
-                // Append brand to the last word's OR group
-                // Actually, we need to rebuild - let's re-approach
-            }
-        }
-
-        // Rebuild properly: each word must match in at least ONE field
+        // Build WHERE conditions: each word must match in at least ONE field
         $where_conditions = [];
-        $like_params = [];
-
         foreach ($expanded_words as $original => $variants) {
             $word_or = [];
             foreach ($variants as $variant) {
                 $like = '%' . $wpdb->esc_like($variant) . '%';
-                $word_or[] = $wpdb->prepare("p.post_title LIKE %s", $like);
-                $word_or[] = $wpdb->prepare("p.post_content LIKE %s", $like);
-                $word_or[] = $wpdb->prepare("p.post_excerpt LIKE %s", $like);
-                $word_or[] = $wpdb->prepare("pm_sku.meta_value LIKE %s", $like);
-                $word_or[] = $wpdb->prepare("t_brand.name LIKE %s", $like);
+                foreach (['p.post_title', 'p.post_content', 'p.post_excerpt', 'pm_sku.meta_value', 't_brand.name'] as $col) {
+                    $word_or[] = "{$col} LIKE %s";
+                    $prepare_values[] = $like;
+                }
             }
             $where_conditions[] = '(' . implode(' OR ', $word_or) . ')';
         }
-
-        // At least one word must match somewhere (OR between all word groups for base set)
-        // But we want to prefer products where ALL words match
         $any_word_where = implode(' OR ', $where_conditions);
 
         // Count how many word-groups match in the title (for pre-ordering)
@@ -300,7 +260,8 @@ class WCSS_Engine {
             $title_or = [];
             foreach ($variants as $variant) {
                 $like = '%' . $wpdb->esc_like($variant) . '%';
-                $title_or[] = $wpdb->prepare("p.post_title LIKE %s", $like);
+                $title_or[] = "p.post_title LIKE %s";
+                $prepare_values[] = $like;
             }
             $word_match_cases[] = 'CASE WHEN (' . implode(' OR ', $title_or) . ') THEN 1 ELSE 0 END';
         }
@@ -315,7 +276,10 @@ class WCSS_Engine {
             $cat_join = "INNER JOIN {$wpdb->term_relationships} tr_cat ON p.ID = tr_cat.object_id
                          INNER JOIN {$wpdb->term_taxonomy} tt_cat ON tr_cat.term_taxonomy_id = tt_cat.term_taxonomy_id
                              AND tt_cat.taxonomy = 'product_cat'";
-            $cat_where = $wpdb->prepare(" AND tt_cat.term_id IN ({$cat_placeholders})", ...$cat_ids);
+            $cat_where = " AND tt_cat.term_id IN ({$cat_placeholders})";
+            foreach ($cat_ids as $cid) {
+                $prepare_values[] = $cid;
+            }
         }
 
         // Brand filter
@@ -323,17 +287,25 @@ class WCSS_Engine {
         if (!empty($args['manufacturer'])) {
             $mfr_ids = array_map('intval', (array)$args['manufacturer']);
             $mfr_placeholders = implode(',', array_fill(0, count($mfr_ids), '%d'));
-            $mfr_where = $wpdb->prepare(" AND t_brand.term_id IN ({$mfr_placeholders})", ...$mfr_ids);
+            $mfr_where = " AND t_brand.term_id IN ({$mfr_placeholders})";
+            foreach ($mfr_ids as $mid) {
+                $prepare_values[] = $mid;
+            }
         }
 
         // Price filter
         $price_where = '';
         if (!empty($args['price_min'])) {
-            $price_where .= $wpdb->prepare(" AND CAST(pm_price.meta_value AS DECIMAL(10,2)) >= %f", floatval($args['price_min']));
+            $price_where .= " AND CAST(pm_price.meta_value AS DECIMAL(10,2)) >= %f";
+            $prepare_values[] = floatval($args['price_min']);
         }
         if (!empty($args['price_max'])) {
-            $price_where .= $wpdb->prepare(" AND CAST(pm_price.meta_value AS DECIMAL(10,2)) <= %f", floatval($args['price_max']));
+            $price_where .= " AND CAST(pm_price.meta_value AS DECIMAL(10,2)) <= %f";
+            $prepare_values[] = floatval($args['price_max']);
         }
+
+        // LIMIT
+        $prepare_values[] = $max_results;
 
         $sql = "SELECT DISTINCT p.ID,
                     p.post_title,
@@ -366,7 +338,8 @@ class WCSS_Engine {
                 ORDER BY title_word_matches DESC, p.post_title ASC
                 LIMIT %d";
 
-        $results = $wpdb->get_results($wpdb->prepare($sql, $max_results), ARRAY_A);
+        // Single prepare() call with all values
+        $results = $wpdb->get_results($wpdb->prepare($sql, ...$prepare_values), ARRAY_A);
 
         // Format products
         $products = [];
@@ -656,34 +629,41 @@ class WCSS_Engine {
 
         $max_results = intval($options['max_results'] ?? 200);
         $conditions = [];
+        $prepare_values = [];
 
         foreach ($words as $word) {
             if (mb_strlen($word) < 3) {
                 continue;
             }
             // SOUNDEX match
-            $conditions[] = $wpdb->prepare("SOUNDEX(p.post_title) = SOUNDEX(%s)", $word);
+            $conditions[] = "SOUNDEX(p.post_title) = SOUNDEX(%s)";
+            $prepare_values[] = $word;
 
             // Fuzzy pattern: add wildcards between characters
             $chars = preg_split('//u', $word, -1, PREG_SPLIT_NO_EMPTY);
             if (count($chars) > 2) {
-                $fuzzy_pattern = '%' . implode('%', $chars) . '%';
-                $conditions[] = $wpdb->prepare("p.post_title LIKE %s", $fuzzy_pattern);
+                $fuzzy_pattern = '%' . implode('%', array_map([$wpdb, 'esc_like'], $chars)) . '%';
+                $conditions[] = "p.post_title LIKE %s";
+                $prepare_values[] = $fuzzy_pattern;
             }
 
             // Consonants only (remove vowels for typo tolerance)
             $consonants = preg_replace('/[aeiou]/iu', '', $word);
             if (mb_strlen($consonants) >= 2) {
-                $consonant_pattern = '%' . implode('%', preg_split('//u', $consonants, -1, PREG_SPLIT_NO_EMPTY)) . '%';
-                $conditions[] = $wpdb->prepare("p.post_title LIKE %s", $consonant_pattern);
+                $con_chars = preg_split('//u', $consonants, -1, PREG_SPLIT_NO_EMPTY);
+                $consonant_pattern = '%' . implode('%', array_map([$wpdb, 'esc_like'], $con_chars)) . '%';
+                $conditions[] = "p.post_title LIKE %s";
+                $prepare_values[] = $consonant_pattern;
             }
 
             // Truncation: without first or last letter
             if (mb_strlen($word) > 3) {
                 $without_first = mb_substr($word, 1);
                 $without_last = mb_substr($word, 0, -1);
-                $conditions[] = $wpdb->prepare("p.post_title LIKE %s", '%' . $wpdb->esc_like($without_first) . '%');
-                $conditions[] = $wpdb->prepare("p.post_title LIKE %s", '%' . $wpdb->esc_like($without_last) . '%');
+                $conditions[] = "p.post_title LIKE %s";
+                $prepare_values[] = '%' . $wpdb->esc_like($without_first) . '%';
+                $conditions[] = "p.post_title LIKE %s";
+                $prepare_values[] = '%' . $wpdb->esc_like($without_last) . '%';
             }
         }
 
@@ -692,6 +672,7 @@ class WCSS_Engine {
         }
 
         $where = implode(' OR ', $conditions);
+        $prepare_values[] = $max_results;
 
         $sql = "SELECT DISTINCT p.ID,
                     p.post_title,
@@ -718,7 +699,8 @@ class WCSS_Engine {
                 ORDER BY p.post_title ASC
                 LIMIT %d";
 
-        $results = $wpdb->get_results($wpdb->prepare($sql, $max_results), ARRAY_A);
+        // Single prepare() call with all values
+        $results = $wpdb->get_results($wpdb->prepare($sql, ...$prepare_values), ARRAY_A);
         $products = [];
         if ($results) {
             foreach ($results as $row) {

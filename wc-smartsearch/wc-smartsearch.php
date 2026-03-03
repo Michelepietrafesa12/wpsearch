@@ -1,0 +1,297 @@
+<?php
+/**
+ * Plugin Name: WC SmartSearch
+ * Plugin URI: https://github.com/wc-smartsearch
+ * Description: Motore di ricerca intelligente per WooCommerce con scoring avanzato, fuzzy search, filtri dinamici, product boosting, banner promozionali, analytics e prodotti consigliati.
+ * Version: 2.2.0
+ * Author: SmartSearch
+ * Author URI: https://github.com/wc-smartsearch
+ * License: GPL v2 or later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain: wc-smartsearch
+ * Domain Path: /languages
+ * Requires at least: 5.0
+ * Requires PHP: 7.2
+ * WC requires at least: 3.0
+ * WC tested up to: 8.0
+ */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+define('WCSS_VERSION', '2.2.0');
+define('WCSS_PLUGIN_FILE', __FILE__);
+define('WCSS_PLUGIN_DIR', plugin_dir_path(__FILE__));
+define('WCSS_PLUGIN_URL', plugin_dir_url(__FILE__));
+define('WCSS_PLUGIN_BASENAME', plugin_basename(__FILE__));
+
+/**
+ * Check if WooCommerce is active.
+ */
+function wcss_check_woocommerce() {
+    if (!class_exists('WooCommerce')) {
+        add_action('admin_notices', function () {
+            echo '<div class="error"><p><strong>WC SmartSearch</strong> richiede WooCommerce attivo.</p></div>';
+        });
+        return false;
+    }
+    return true;
+}
+
+/**
+ * Plugin activation.
+ */
+function wcss_activate() {
+    require_once WCSS_PLUGIN_DIR . 'includes/class-wcss-installer.php';
+    WCSS_Installer::activate();
+}
+register_activation_hook(__FILE__, 'wcss_activate');
+
+/**
+ * Plugin deactivation.
+ */
+function wcss_deactivate() {
+    require_once WCSS_PLUGIN_DIR . 'includes/class-wcss-installer.php';
+    WCSS_Installer::deactivate();
+}
+register_deactivation_hook(__FILE__, 'wcss_deactivate');
+
+/**
+ * Plugin uninstall handled in uninstall.php.
+ */
+
+/**
+ * Initialize the plugin.
+ */
+function wcss_init() {
+    if (!wcss_check_woocommerce()) {
+        return;
+    }
+
+    // Load classes
+    require_once WCSS_PLUGIN_DIR . 'classes/class-wcss-engine.php';
+    require_once WCSS_PLUGIN_DIR . 'classes/class-wcss-cache.php';
+    require_once WCSS_PLUGIN_DIR . 'classes/class-wcss-analytics.php';
+    require_once WCSS_PLUGIN_DIR . 'classes/class-wcss-correlations.php';
+    require_once WCSS_PLUGIN_DIR . 'includes/class-wcss-cron.php';
+
+    // Load AJAX handler
+    require_once WCSS_PLUGIN_DIR . 'ajax/class-wcss-ajax.php';
+
+    // Load admin
+    if (is_admin()) {
+        require_once WCSS_PLUGIN_DIR . 'admin/class-wcss-admin.php';
+        new WCSS_Admin();
+    }
+
+    // Frontend hooks
+    add_action('wp_enqueue_scripts', 'wcss_enqueue_assets');
+    add_action('wp_footer', 'wcss_render_searchbar');
+    add_action('woocommerce_after_single_product_summary', 'wcss_render_product_recommendations', 25);
+    add_action('woocommerce_after_cart_table', 'wcss_render_cart_recommendations');
+
+    // AJAX hooks
+    $ajax = new WCSS_Ajax();
+    add_action('wp_ajax_wcss_search', [$ajax, 'handle_search']);
+    add_action('wp_ajax_nopriv_wcss_search', [$ajax, 'handle_search']);
+    add_action('wp_ajax_wcss_suggestions', [$ajax, 'handle_suggestions']);
+    add_action('wp_ajax_nopriv_wcss_suggestions', [$ajax, 'handle_suggestions']);
+    add_action('wp_ajax_wcss_filters', [$ajax, 'handle_filters']);
+    add_action('wp_ajax_nopriv_wcss_filters', [$ajax, 'handle_filters']);
+    add_action('wp_ajax_wcss_banners', [$ajax, 'handle_banners']);
+    add_action('wp_ajax_nopriv_wcss_banners', [$ajax, 'handle_banners']);
+    add_action('wp_ajax_wcss_analytics', [$ajax, 'handle_analytics']);
+    add_action('wp_ajax_nopriv_wcss_analytics', [$ajax, 'handle_analytics']);
+    add_action('wp_ajax_wcss_recommendations', [$ajax, 'handle_recommendations']);
+    add_action('wp_ajax_nopriv_wcss_recommendations', [$ajax, 'handle_recommendations']);
+
+    // Conversion tracking hooks (fail-safe)
+    add_action('woocommerce_thankyou', 'wcss_track_conversion', 10, 1);
+}
+add_action('plugins_loaded', 'wcss_init');
+
+/**
+ * Enqueue frontend assets.
+ */
+function wcss_enqueue_assets() {
+    $options = wcss_get_options();
+    if (empty($options['enabled'])) {
+        return;
+    }
+
+    wp_enqueue_style(
+        'wcss-frontend',
+        WCSS_PLUGIN_URL . 'assets/css/smartsearch.css',
+        [],
+        WCSS_VERSION
+    );
+
+    wp_enqueue_script(
+        'wcss-frontend',
+        WCSS_PLUGIN_URL . 'assets/js/smartsearch.js',
+        [],
+        WCSS_VERSION,
+        true
+    );
+
+    $product_id = 0;
+    $cart_product_ids = [];
+
+    if (is_product()) {
+        $product_id = get_the_ID();
+    }
+
+    if (function_exists('WC') && WC()->cart) {
+        foreach (WC()->cart->get_cart() as $item) {
+            $cart_product_ids[] = $item['product_id'];
+        }
+    }
+
+    wp_localize_script('wcss-frontend', 'wcss_params', [
+        'ajax_url'           => admin_url('admin-ajax.php'),
+        'nonce'              => wp_create_nonce('wcss_nonce'),
+        'min_chars'          => intval($options['min_chars'] ?? 2),
+        'max_results'        => intval($options['max_results'] ?? 200),
+        'results_per_page'   => 24,
+        'debounce_delay'     => 300,
+        'cache_ttl'          => 300,
+        'currency_symbol'    => function_exists('get_woocommerce_currency_symbol') ? get_woocommerce_currency_symbol() : '€',
+        'product_id'         => $product_id,
+        'cart_product_ids'   => $cart_product_ids,
+        'recommendations'    => !empty($options['recommendations_enabled']),
+        'i18n'               => [
+            'search_placeholder' => __('Cerca prodotti...', 'wc-smartsearch'),
+            'no_results'         => __('Nessun risultato trovato', 'wc-smartsearch'),
+            'loading'            => __('Caricamento...', 'wc-smartsearch'),
+            'did_you_mean'       => __('Forse cercavi:', 'wc-smartsearch'),
+            'filters'            => __('Filtri', 'wc-smartsearch'),
+            'price'              => __('Prezzo', 'wc-smartsearch'),
+            'brand'              => __('Marca', 'wc-smartsearch'),
+            'categories'         => __('Categorie', 'wc-smartsearch'),
+            'apply_filters'      => __('Applica filtri', 'wc-smartsearch'),
+            'reset_filters'      => __('Reset', 'wc-smartsearch'),
+            'add_to_cart'        => __('Aggiungi al carrello', 'wc-smartsearch'),
+            'added'              => __('Aggiunto!', 'wc-smartsearch'),
+            'also_bought'        => __('Chi ha acquistato questo ha comprato anche', 'wc-smartsearch'),
+            'complete_order'     => __('Completa il tuo ordine', 'wc-smartsearch'),
+            'results_count'      => __('%d risultati', 'wc-smartsearch'),
+            'show_filters'       => __('Mostra filtri', 'wc-smartsearch'),
+            'hide_filters'       => __('Nascondi filtri', 'wc-smartsearch'),
+        ],
+    ]);
+}
+
+/**
+ * Render search bar in footer (overlay mode).
+ */
+function wcss_render_searchbar() {
+    $options = wcss_get_options();
+    if (empty($options['enabled'])) {
+        return;
+    }
+    include WCSS_PLUGIN_DIR . 'templates/searchbar.php';
+}
+
+/**
+ * Render product recommendations on single product page.
+ */
+function wcss_render_product_recommendations() {
+    try {
+        $options = wcss_get_options();
+        if (empty($options['recommendations_enabled'])) {
+            return;
+        }
+        $product_id = get_the_ID();
+        if (!$product_id) {
+            return;
+        }
+        echo '<div id="wcss-product-recommendations" data-product-id="' . esc_attr($product_id) . '"></div>';
+    } catch (\Throwable $e) {
+        // Fail-safe: never break product page
+    }
+}
+
+/**
+ * Render cart recommendations.
+ */
+function wcss_render_cart_recommendations() {
+    try {
+        $options = wcss_get_options();
+        if (empty($options['recommendations_enabled'])) {
+            return;
+        }
+        $product_ids = [];
+        if (function_exists('WC') && WC()->cart) {
+            foreach (WC()->cart->get_cart() as $item) {
+                $product_ids[] = $item['product_id'];
+            }
+        }
+        if (empty($product_ids)) {
+            return;
+        }
+        echo '<div id="wcss-cart-recommendations" data-product-ids="' . esc_attr(implode(',', $product_ids)) . '"></div>';
+    } catch (\Throwable $e) {
+        // Fail-safe: never break cart/checkout
+    }
+}
+
+/**
+ * Track conversion on order complete (fail-safe).
+ */
+function wcss_track_conversion($order_id) {
+    try {
+        $options = wcss_get_options();
+        if (empty($options['analytics_enabled'])) {
+            return;
+        }
+        $search_session = isset($_COOKIE['wcss_search_session']) ? sanitize_text_field($_COOKIE['wcss_search_session']) : '';
+        if (empty($search_session)) {
+            return;
+        }
+        $analytics = new WCSS_Analytics();
+        $order = wc_get_order($order_id);
+        if (!$order) {
+            return;
+        }
+        $analytics->track_conversion($order_id, $search_session, $order->get_total());
+    } catch (\Throwable $e) {
+        // Fail-safe: never block checkout
+    }
+}
+
+/**
+ * Get plugin options with static cache.
+ */
+function wcss_get_options() {
+    static $options = null;
+    if ($options === null) {
+        $defaults = [
+            'enabled'                    => 1,
+            'min_chars'                  => 2,
+            'max_results'                => 200,
+            'fuzzy_enabled'              => 1,
+            'synonyms_enabled'           => 1,
+            'filters_enabled'            => 1,
+            'analytics_enabled'          => 1,
+            'analytics_webhook_url'      => '',
+            'cache_enabled'              => 1,
+            'cache_ttl'                  => 300,
+            'recommendations_enabled'    => 1,
+            'recommendations_days'       => 180,
+            'recommendations_min_orders' => 2,
+        ];
+        $saved = get_option('wcss_options', []);
+        $options = wp_parse_args($saved, $defaults);
+    }
+    return $options;
+}
+
+/**
+ * Declare HPOS compatibility.
+ */
+add_action('before_woocommerce_init', function () {
+    if (class_exists('\Automattic\WooCommerce\Utilities\FeaturesUtil')) {
+        \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('custom_order_tables', __FILE__, true);
+    }
+});

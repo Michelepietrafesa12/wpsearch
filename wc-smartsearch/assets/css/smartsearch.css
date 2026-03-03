@@ -1,0 +1,2210 @@
+/**
+ * WooCommerce SmartSearch - Main Frontend Stylesheet
+ *
+ * Styles for the fullscreen search overlay, product results grid,
+ * filters sidebar, suggestions dropdown, recommendations slider,
+ * banners, and all responsive/dark-mode variants.
+ *
+ * @package WC_SmartSearch
+ * @since   1.0.0
+ */
+
+/* ==========================================================================
+   1. CSS Custom Properties
+   ========================================================================== */
+
+:root {
+    /* Brand colors */
+    --wcss-primary: #2563eb;
+    --wcss-primary-hover: #1d4ed8;
+    --wcss-primary-light: #dbeafe;
+    --wcss-accent: #059669;
+    --wcss-accent-hover: #047857;
+    --wcss-danger: #dc2626;
+    --wcss-danger-light: #fef2f2;
+    --wcss-warning: #f59e0b;
+
+    /* Neutral palette */
+    --wcss-white: #ffffff;
+    --wcss-gray-50: #f9fafb;
+    --wcss-gray-100: #f3f4f6;
+    --wcss-gray-200: #e5e7eb;
+    --wcss-gray-300: #d1d5db;
+    --wcss-gray-400: #9ca3af;
+    --wcss-gray-500: #6b7280;
+    --wcss-gray-600: #4b5563;
+    --wcss-gray-700: #374151;
+    --wcss-gray-800: #1f2937;
+    --wcss-gray-900: #111827;
+    --wcss-black: #000000;
+
+    /* Overlay */
+    --wcss-overlay-bg: rgba(0, 0, 0, 0.85);
+    --wcss-overlay-z: 99999;
+
+    /* Surfaces */
+    --wcss-surface: #ffffff;
+    --wcss-surface-elevated: #ffffff;
+    --wcss-surface-hover: #f9fafb;
+
+    /* Text */
+    --wcss-text-primary: #111827;
+    --wcss-text-secondary: #6b7280;
+    --wcss-text-muted: #9ca3af;
+    --wcss-text-inverse: #ffffff;
+
+    /* Borders */
+    --wcss-border: #e5e7eb;
+    --wcss-border-focus: #2563eb;
+
+    /* Shadows */
+    --wcss-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --wcss-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+    --wcss-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+    --wcss-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+    --wcss-shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1), 0 10px 10px rgba(0, 0, 0, 0.04);
+
+    /* Typography */
+    --wcss-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+        Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+    --wcss-font-size-xs: 0.75rem;
+    --wcss-font-size-sm: 0.875rem;
+    --wcss-font-size-base: 1rem;
+    --wcss-font-size-lg: 1.125rem;
+    --wcss-font-size-xl: 1.25rem;
+    --wcss-font-size-2xl: 1.5rem;
+    --wcss-font-size-3xl: 1.875rem;
+
+    /* Spacing */
+    --wcss-spacing-xs: 0.25rem;
+    --wcss-spacing-sm: 0.5rem;
+    --wcss-spacing-md: 1rem;
+    --wcss-spacing-lg: 1.5rem;
+    --wcss-spacing-xl: 2rem;
+    --wcss-spacing-2xl: 3rem;
+
+    /* Radii */
+    --wcss-radius-sm: 0.25rem;
+    --wcss-radius: 0.5rem;
+    --wcss-radius-lg: 0.75rem;
+    --wcss-radius-xl: 1rem;
+    --wcss-radius-full: 9999px;
+
+    /* Transitions */
+    --wcss-transition-fast: 150ms ease;
+    --wcss-transition: 250ms ease;
+    --wcss-transition-slow: 350ms ease;
+
+    /* Layout */
+    --wcss-container-max: 1280px;
+    --wcss-sidebar-width: 280px;
+    --wcss-header-height: 80px;
+}
+
+
+/* ==========================================================================
+   2. Search Trigger
+   ========================================================================== */
+
+.wcss-search-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border: none;
+    border-radius: var(--wcss-radius-full);
+    background: transparent;
+    color: var(--wcss-text-primary);
+    font-size: var(--wcss-font-size-xl);
+    cursor: pointer;
+    transition: background var(--wcss-transition-fast), color var(--wcss-transition-fast),
+        transform var(--wcss-transition-fast);
+    position: relative;
+    z-index: 100;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+.wcss-search-trigger:hover {
+    background: var(--wcss-gray-100);
+    color: var(--wcss-primary);
+    transform: scale(1.05);
+}
+
+.wcss-search-trigger:focus {
+    outline: 2px solid var(--wcss-primary);
+    outline-offset: 2px;
+}
+
+.wcss-search-trigger:active {
+    transform: scale(0.95);
+}
+
+.wcss-search-trigger svg,
+.wcss-search-trigger .wcss-search-icon {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+
+/* ==========================================================================
+   3. Search Overlay
+   ========================================================================== */
+
+.wcss-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: var(--wcss-overlay-z);
+    background: var(--wcss-overlay-bg);
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--wcss-transition-slow), visibility var(--wcss-transition-slow);
+    overflow: hidden;
+    font-family: var(--wcss-font-family);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.wcss-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.wcss-overlay * {
+    box-sizing: border-box;
+}
+
+.wcss-overlay-inner {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    max-width: var(--wcss-container-max);
+    margin: 0 auto;
+    overflow: hidden;
+}
+
+
+/* ==========================================================================
+   4. Search Header / Input Area
+   ========================================================================== */
+
+.wcss-search-header {
+    display: flex;
+    align-items: center;
+    gap: var(--wcss-spacing-md);
+    padding: var(--wcss-spacing-lg) var(--wcss-spacing-xl);
+    background: var(--wcss-surface);
+    border-bottom: 1px solid var(--wcss-border);
+    min-height: var(--wcss-header-height);
+    position: relative;
+    flex-shrink: 0;
+    animation: wcss-slideDown var(--wcss-transition-slow) ease forwards;
+}
+
+@keyframes wcss-slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.wcss-search-form {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    position: relative;
+}
+
+.wcss-search-icon-inside {
+    position: absolute;
+    left: var(--wcss-spacing-md);
+    top: 50%;
+    transform: translateY(-50%);
+    width: 22px;
+    height: 22px;
+    color: var(--wcss-text-muted);
+    pointer-events: none;
+    transition: color var(--wcss-transition-fast);
+}
+
+.wcss-search-form:focus-within .wcss-search-icon-inside {
+    color: var(--wcss-primary);
+}
+
+.wcss-search-input {
+    width: 100%;
+    height: 52px;
+    padding: 0 var(--wcss-spacing-md) 0 calc(var(--wcss-spacing-md) + 30px);
+    border: 2px solid var(--wcss-border);
+    border-radius: var(--wcss-radius-lg);
+    background: var(--wcss-surface);
+    color: var(--wcss-text-primary);
+    font-family: var(--wcss-font-family);
+    font-size: var(--wcss-font-size-lg);
+    font-weight: 400;
+    outline: none;
+    transition: border-color var(--wcss-transition-fast), box-shadow var(--wcss-transition-fast);
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+.wcss-search-input::placeholder {
+    color: var(--wcss-text-muted);
+    font-weight: 300;
+}
+
+.wcss-search-input:focus {
+    border-color: var(--wcss-primary);
+    box-shadow: 0 0 0 3px var(--wcss-primary-light);
+}
+
+.wcss-search-input::-webkit-search-cancel-button,
+.wcss-search-input::-webkit-search-decoration {
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.wcss-search-clear {
+    position: absolute;
+    right: var(--wcss-spacing-sm);
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: var(--wcss-radius-full);
+    background: var(--wcss-gray-100);
+    color: var(--wcss-text-secondary);
+    font-size: var(--wcss-font-size-sm);
+    cursor: pointer;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--wcss-transition-fast), background var(--wcss-transition-fast);
+}
+
+.wcss-search-clear.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.wcss-search-clear:hover {
+    background: var(--wcss-gray-200);
+    color: var(--wcss-text-primary);
+}
+
+/* Close button */
+.wcss-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: none;
+    border-radius: var(--wcss-radius-full);
+    background: var(--wcss-gray-100);
+    color: var(--wcss-text-secondary);
+    font-size: var(--wcss-font-size-xl);
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background var(--wcss-transition-fast), color var(--wcss-transition-fast),
+        transform var(--wcss-transition-fast);
+}
+
+.wcss-close-btn:hover {
+    background: var(--wcss-gray-200);
+    color: var(--wcss-text-primary);
+    transform: rotate(90deg);
+}
+
+.wcss-close-btn:focus {
+    outline: 2px solid var(--wcss-primary);
+    outline-offset: 2px;
+}
+
+.wcss-close-btn svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    stroke-width: 2;
+}
+
+
+/* ==========================================================================
+   5. Suggestions Dropdown
+   ========================================================================== */
+
+.wcss-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: var(--wcss-spacing-xs);
+    background: var(--wcss-surface-elevated);
+    border: 1px solid var(--wcss-border);
+    border-radius: var(--wcss-radius-lg);
+    box-shadow: var(--wcss-shadow-lg);
+    max-height: 400px;
+    overflow-y: auto;
+    z-index: 10;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    transition: opacity var(--wcss-transition-fast), transform var(--wcss-transition-fast),
+        visibility var(--wcss-transition-fast);
+}
+
+.wcss-suggestions.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.wcss-suggestions-group {
+    padding: var(--wcss-spacing-sm) 0;
+    border-bottom: 1px solid var(--wcss-border);
+}
+
+.wcss-suggestions-group:last-child {
+    border-bottom: none;
+}
+
+.wcss-suggestions-group-title {
+    display: block;
+    padding: var(--wcss-spacing-xs) var(--wcss-spacing-md);
+    font-size: var(--wcss-font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--wcss-text-muted);
+}
+
+.wcss-suggestion-item {
+    display: flex;
+    align-items: center;
+    gap: var(--wcss-spacing-sm);
+    padding: var(--wcss-spacing-sm) var(--wcss-spacing-md);
+    color: var(--wcss-text-primary);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background var(--wcss-transition-fast);
+}
+
+.wcss-suggestion-item:hover,
+.wcss-suggestion-item.active {
+    background: var(--wcss-primary-light);
+}
+
+.wcss-suggestion-item.active {
+    color: var(--wcss-primary);
+}
+
+.wcss-suggestion-item-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border-radius: var(--wcss-radius);
+    background: var(--wcss-gray-100);
+    color: var(--wcss-text-muted);
+}
+
+.wcss-suggestion-item-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.wcss-suggestion-item-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: var(--wcss-radius-sm);
+}
+
+.wcss-suggestion-item-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.wcss-suggestion-item-label {
+    display: block;
+    font-size: var(--wcss-font-size-sm);
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wcss-suggestion-item-label mark,
+.wcss-suggestion-item-label .wcss-highlight {
+    background: transparent;
+    color: var(--wcss-primary);
+    font-weight: 700;
+}
+
+.wcss-suggestion-item-meta {
+    display: block;
+    font-size: var(--wcss-font-size-xs);
+    color: var(--wcss-text-muted);
+    margin-top: 1px;
+}
+
+/* Popular suggestion with search count */
+.wcss-suggestion-item--popular .wcss-suggestion-count {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    font-size: var(--wcss-font-size-xs);
+    font-weight: 500;
+    color: var(--wcss-text-muted);
+    background: var(--wcss-gray-100);
+    border-radius: var(--wcss-radius-full);
+}
+
+/* Product suggestion with price */
+.wcss-suggestion-item--product .wcss-suggestion-price {
+    flex-shrink: 0;
+    font-size: var(--wcss-font-size-sm);
+    font-weight: 600;
+    color: var(--wcss-accent);
+}
+
+/* Brand suggestion */
+.wcss-suggestion-item--brand .wcss-suggestion-item-icon {
+    background: var(--wcss-primary-light);
+    color: var(--wcss-primary);
+}
+
+
+/* ==========================================================================
+   6. Results Container & Layout
+   ========================================================================== */
+
+.wcss-results-wrapper {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+}
+
+.wcss-results-container {
+    display: flex;
+    gap: var(--wcss-spacing-xl);
+    padding: var(--wcss-spacing-xl);
+    max-width: var(--wcss-container-max);
+    margin: 0 auto;
+    width: 100%;
+    min-height: 0;
+}
+
+.wcss-results-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.wcss-results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--wcss-spacing-lg);
+    flex-wrap: wrap;
+    gap: var(--wcss-spacing-sm);
+}
+
+.wcss-results-count {
+    font-size: var(--wcss-font-size-sm);
+    font-weight: 500;
+    color: var(--wcss-text-inverse);
+}
+
+.wcss-results-count strong {
+    font-weight: 700;
+    color: var(--wcss-white);
+}
+
+.wcss-results-sort {
+    display: flex;
+    align-items: center;
+    gap: var(--wcss-spacing-sm);
+}
+
+.wcss-results-sort label {
+    font-size: var(--wcss-font-size-sm);
+    color: var(--wcss-text-inverse);
+    white-space: nowrap;
+}
+
+.wcss-results-sort select {
+    padding: var(--wcss-spacing-xs) var(--wcss-spacing-sm);
+    border: 1px solid var(--wcss-border);
+    border-radius: var(--wcss-radius);
+    background: var(--wcss-surface);
+    color: var(--wcss-text-primary);
+    font-family: var(--wcss-font-family);
+    font-size: var(--wcss-font-size-sm);
+    cursor: pointer;
+}
+
+
+/* ==========================================================================
+   7. Results Grid
+   ========================================================================== */
+
+.wcss-results-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--wcss-spacing-lg);
+}
+
+/* Loading state */
+.wcss-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--wcss-spacing-2xl) var(--wcss-spacing-md);
+    gap: var(--wcss-spacing-md);
+}
+
+.wcss-loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--wcss-gray-300);
+    border-top-color: var(--wcss-primary);
+    border-radius: 50%;
+    animation: wcss-spin 0.8s linear infinite;
+}
+
+@keyframes wcss-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.wcss-loading-text {
+    font-size: var(--wcss-font-size-sm);
+    color: var(--wcss-text-inverse);
+    font-weight: 400;
+}
+
+/* No results */
+.wcss-no-results {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--wcss-spacing-2xl);
+    text-align: center;
+}
+
+.wcss-no-results-icon {
+    width: 64px;
+    height: 64px;
+    margin-bottom: var(--wcss-spacing-md);
+    color: var(--wcss-text-muted);
+    opacity: 0.5;
+}
+
+.wcss-no-results-title {
+    font-size: var(--wcss-font-size-xl);
+    font-weight: 600;
+    color: var(--wcss-text-inverse);
+    margin: 0 0 var(--wcss-spacing-sm) 0;
+}
+
+.wcss-no-results-message {
+    font-size: var(--wcss-font-size-sm);
+    color: var(--wcss-text-muted);
+    max-width: 400px;
+    line-height: 1.6;
+    margin: 0;
+}
+
+
+/* ==========================================================================
+   8. Product Cards
+   ========================================================================== */
+
+.wcss-product-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--wcss-surface);
+    border-radius: var(--wcss-radius-lg);
+    overflow: hidden;
+    box-shadow: var(--wcss-shadow);
+    transition: transform var(--wcss-transition), box-shadow var(--wcss-transition);
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+    position: relative;
+}
+
+.wcss-product-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--wcss-shadow-xl);
+}
+
+.wcss-product-card:focus-within {
+    outline: 2px solid var(--wcss-primary);
+    outline-offset: 2px;
+}
+
+/* Product image */
+.wcss-product-image {
+    position: relative;
+    width: 100%;
+    padding-top: 100%; /* 1:1 aspect ratio */
+    background: var(--wcss-gray-100);
+    overflow: hidden;
+}
+
+.wcss-product-image img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--wcss-transition-slow);
+}
+
+.wcss-product-card:hover .wcss-product-image img {
+    transform: scale(1.05);
+}
+
+/* Product badges */
+.wcss-product-badge {
+    position: absolute;
+    top: var(--wcss-spacing-sm);
+    left: var(--wcss-spacing-sm);
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    font-size: var(--wcss-font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-radius: var(--wcss-radius-sm);
+    z-index: 2;
+}
+
+.wcss-product-badge--sale {
+    background: var(--wcss-danger);
+    color: var(--wcss-white);
+}
+
+.wcss-product-badge--new {
+    background: var(--wcss-accent);
+    color: var(--wcss-white);
+}
+
+.wcss-product-badge--out-of-stock {
+    background: var(--wcss-gray-700);
+    color: var(--wcss-white);
+}
+
+.wcss-product-badge--featured {
+    background: var(--wcss-warning);
+    color: var(--wcss-gray-900);
+}
+
+/* Product info */
+.wcss-product-info {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    padding: var(--wcss-spacing-md);
+    gap: var(--wcss-spacing-xs);
+}
+
+.wcss-product-brand {
+    font-size: var(--wcss-font-size-xs);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--wcss-primary);
+    margin: 0;
+}
+
+.wcss-product-name {
+    font-size: var(--wcss-font-size-sm);
+    font-weight: 600;
+    color: var(--wcss-text-primary);
+    line-height: 1.4;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.wcss-product-card:hover .wcss-product-name {
+    color: var(--wcss-primary);
+}
+
+.wcss-product-price {
+    display: flex;
+    align-items: baseline;
+    gap: var(--wcss-spacing-sm);
+    margin-top: auto;
+    padding-top: var(--wcss-spacing-xs);
+}
+
+.wcss-product-price .sale {
+    font-size: var(--wcss-font-size-lg);
+    font-weight: 700;
+    color: var(--wcss-danger);
+}
+
+.wcss-product-price .original {
+    font-size: var(--wcss-font-size-sm);
+    font-weight: 400;
+    color: var(--wcss-text-muted);
+    text-decoration: line-through;
+}
+
+.wcss-product-price .regular {
+    font-size: var(--wcss-font-size-lg);
+    font-weight: 700;
+    color: var(--wcss-text-primary);
+}
+
+/* Add to cart button */
+.wcss-add-to-cart-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--wcss-spacing-sm);
+    width: 100%;
+    padding: var(--wcss-spacing-sm) var(--wcss-spacing-md);
+    margin-top: var(--wcss-spacing-sm);
+    border: none;
+    border-radius: var(--wcss-radius);
+    background: var(--wcss-primary);
+    color: var(--wcss-white);
+    font-family: var(--wcss-font-family);
+    font-size: var(--wcss-font-size-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--wcss-transition-fast), transform var(--wcss-transition-fast);
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+.wcss-add-to-cart-btn:hover {
+    background: var(--wcss-primary-hover);
+    transform: translateY(-1px);
+}
+
+.wcss-add-to-cart-btn:active {
+    transform: translateY(0);
+}
+
+.wcss-add-to-cart-btn:disabled {
+    background: var(--wcss-gray-300);
+    color: var(--wcss-gray-500);
+    cursor: not-allowed;
+    transform: none;
+}
+
+.wcss-add-to-cart-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.wcss-add-to-cart-btn.added {
+    background: var(--wcss-accent);
+}
+
+
+/* ==========================================================================
+   9. Filters Sidebar (Desktop)
+   ========================================================================== */
+
+.wcss-filters-sidebar {
+    width: var(--wcss-sidebar-width);
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    max-height: calc(100vh - var(--wcss-header-height) - var(--wcss-spacing-xl) * 2);
+    overflow-y: auto;
+    padding-right: var(--wcss-spacing-md);
+    -webkit-overflow-scrolling: touch;
+}
+
+.wcss-filters-sidebar::-webkit-scrollbar {
+    width: 4px;
+}
+
+.wcss-filters-sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.wcss-filters-sidebar::-webkit-scrollbar-thumb {
+    background: var(--wcss-gray-400);
+    border-radius: var(--wcss-radius-full);
+}
+
+.wcss-filter-group {
+    padding: var(--wcss-spacing-md) 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.wcss-filter-group:first-child {
+    padding-top: 0;
+}
+
+.wcss-filter-group:last-child {
+    border-bottom: none;
+}
+
+.wcss-filter-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: var(--wcss-font-size-sm);
+    font-weight: 600;
+    color: var(--wcss-text-inverse);
+    margin: 0 0 var(--wcss-spacing-md) 0;
+    cursor: pointer;
+    user-select: none;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.wcss-filter-title::after {
+    content: "";
+    display: block;
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid var(--wcss-text-muted);
+    border-bottom: 2px solid var(--wcss-text-muted);
+    transform: rotate(45deg);
+    transition: transform var(--wcss-transition-fast);
+}
+
+.wcss-filter-group.collapsed .wcss-filter-title::after {
+    transform: rotate(-135deg);
+}
+
+.wcss-filter-group.collapsed .wcss-filter-content {
+    display: none;
+}
+
+/* Price range slider */
+.wcss-price-range {
+    padding: var(--wcss-spacing-sm) 0;
+}
+
+.wcss-price-range-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: var(--wcss-spacing-sm);
+}
+
+.wcss-price-range-labels span {
+    font-size: var(--wcss-font-size-sm);
+    font-weight: 500;
+    color: var(--wcss-text-inverse);
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2px 8px;
+    border-radius: var(--wcss-radius-sm);
+}
+
+.wcss-price-range-slider {
+    position: relative;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: var(--wcss-radius-full);
+    margin: var(--wcss-spacing-md) 0;
+}
+
+.wcss-price-range-track {
+    position: absolute;
+    height: 100%;
+    background: var(--wcss-primary);
+    border-radius: var(--wcss-radius-full);
+}
+
+.wcss-price-range-slider input[type="range"] {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    margin: 0;
+    padding: 0;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    pointer-events: none;
+    outline: none;
+}
+
+.wcss-price-range-slider input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: var(--wcss-white);
+    border: 2px solid var(--wcss-primary);
+    border-radius: 50%;
+    cursor: pointer;
+    pointer-events: all;
+    box-shadow: var(--wcss-shadow);
+    transition: transform var(--wcss-transition-fast);
+}
+
+.wcss-price-range-slider input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+.wcss-price-range-slider input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: var(--wcss-white);
+    border: 2px solid var(--wcss-primary);
+    border-radius: 50%;
+    cursor: pointer;
+    pointer-events: all;
+    box-shadow: var(--wcss-shadow);
+}
+
+/* Filter checkboxes */
+.wcss-filter-checkbox {
+    display: flex;
+    align-items: center;
+    gap: var(--wcss-spacing-sm);
+    padding: var(--wcss-spacing-xs) 0;
+    cursor: pointer;
+    font-size: var(--wcss-font-size-sm);
+    color: var(--wcss-text-inverse);
+    transition: color var(--wcss-transition-fast);
+    user-select: none;
+}
+
+.wcss-filter-checkbox:hover {
+    color: var(--wcss-white);
+}
+
+.wcss-filter-checkbox input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.wcss-filter-checkbox .wcss-checkbox-visual {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: var(--wcss-radius-sm);
+    background: transparent;
+    transition: border-color var(--wcss-transition-fast), background var(--wcss-transition-fast);
+}
+
+.wcss-filter-checkbox:hover .wcss-checkbox-visual {
+    border-color: var(--wcss-primary);
+}
+
+.wcss-filter-checkbox input[type="checkbox"]:checked + .wcss-checkbox-visual {
+    background: var(--wcss-primary);
+    border-color: var(--wcss-primary);
+}
+
+.wcss-filter-checkbox input[type="checkbox"]:checked + .wcss-checkbox-visual::after {
+    content: "";
+    display: block;
+    width: 5px;
+    height: 9px;
+    border: solid var(--wcss-white);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+    margin-bottom: 2px;
+}
+
+.wcss-filter-checkbox input[type="checkbox"]:focus + .wcss-checkbox-visual {
+    box-shadow: 0 0 0 2px var(--wcss-primary-light);
+}
+
+.wcss-filter-checkbox-label {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wcss-filter-checkbox-count {
+    flex-shrink: 0;
+    font-size: var(--wcss-font-size-xs);
+    color: var(--wcss-text-muted);
+    padding: 1px 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: var(--wcss-radius-full);
+}
+
+/* Filter actions */
+.wcss-filters-actions {
+    display: flex;
+    gap: var(--wcss-spacing-sm);
+    padding-top: var(--wcss-spacing-md);
+    margin-top: var(--wcss-spacing-md);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.wcss-filter-apply-btn {
+    flex: 1;
+    padding: var(--wcss-spacing-sm) var(--wcss-spacing-md);
+    border: none;
+    border-radius: var(--wcss-radius);
+    background: var(--wcss-primary);
+    color: var(--wcss-white);
+    font-family: var(--wcss-font-family);
+    font-size: var(--wcss-font-size-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--wcss-transition-fast);
+}
+
+.wcss-filter-apply-btn:hover {
+    background: var(--wcss-primary-hover);
+}
+
+.wcss-filter-reset-btn {
+    padding: var(--wcss-spacing-sm) var(--wcss-spacing-md);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--wcss-radius);
+    background: transparent;
+    color: var(--wcss-text-inverse);
+    font-family: var(--wcss-font-family);
+    font-size: var(--wcss-font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: border-color var(--wcss-transition-fast), background var(--wcss-transition-fast);
+}
+
+.wcss-filter-reset-btn:hover {
+    border-color: rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Filters toggle (tablet/mobile) */
+.wcss-filters-toggle {
+    display: none;
+    align-items: center;
+    gap: var(--wcss-spacing-sm);
+    padding: var(--wcss-spacing-sm) var(--wcss-spacing-md);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--wcss-radius);
+    background: transparent;
+    color: var(--wcss-text-inverse);
+    font-family: var(--wcss-font-family);
+    font-size: var(--wcss-font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: border-color var(--wcss-transition-fast), background var(--wcss-transition-fast);
+}
+
+.wcss-filters-toggle:hover {
+    border-color: rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.wcss-filters-toggle svg {
+    width: 18px;
+    height: 18px;
+}
+
+.wcss-filters-toggle .wcss-active-filters-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    background: var(--wcss-primary);
+    color: var(--wcss-white);
+    font-size: var(--wcss-font-size-xs);
+    font-weight: 700;
+    border-radius: var(--wcss-radius-full);
+}
+
+
+/* ==========================================================================
+   10. Mobile Filters Panel
+   ========================================================================== */
+
+.wcss-mobile-filters-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: calc(var(--wcss-overlay-z) + 1);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--wcss-transition), visibility var(--wcss-transition);
+}
+
+.wcss-mobile-filters-backdrop.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.wcss-mobile-filters {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 320px;
+    max-width: 85vw;
+    height: 100%;
+    z-index: calc(var(--wcss-overlay-z) + 2);
+    background: var(--wcss-gray-900);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(-100%);
+    transition: transform var(--wcss-transition-slow) cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+}
+
+.wcss-mobile-filters.active {
+    transform: translateX(0);
+}
+
+.wcss-mobile-filters-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--wcss-spacing-md) var(--wcss-spacing-lg);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+}
+
+.wcss-mobile-filters-header h3 {
+    font-size: var(--wcss-font-size-lg);
+    font-weight: 700;
+    color: var(--wcss-white);
+    margin: 0;
+}
+
+.wcss-mobile-filters-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    border-radius: var(--wcss-radius-full);
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--wcss-white);
+    cursor: pointer;
+    transition: background var(--wcss-transition-fast);
+}
+
+.wcss-mobile-filters-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.wcss-mobile-filters-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--wcss-spacing-md) var(--wcss-spacing-lg);
+    -webkit-overflow-scrolling: touch;
+}
+
+.wcss-mobile-filters-footer {
+    display: flex;
+    gap: var(--wcss-spacing-sm);
+    padding: var(--wcss-spacing-md) var(--wcss-spacing-lg);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+}
+
+
+/* ==========================================================================
+   11. Banners
+   ========================================================================== */
+
+.wcss-banner {
+    border-radius: var(--wcss-radius-lg);
+    overflow: hidden;
+    position: relative;
+    margin-bottom: var(--wcss-spacing-lg);
+}
+
+.wcss-banner a {
+    display: block;
+    text-decoration: none;
+}
+
+.wcss-banner img {
+    width: 100%;
+    height: auto;
+    display: block;
+    transition: transform var(--wcss-transition-slow);
+}
+
+.wcss-banner:hover img {
+    transform: scale(1.02);
+}
+
+.wcss-banner-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: var(--wcss-spacing-lg);
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+    color: var(--wcss-white);
+}
+
+.wcss-banner-top {
+    grid-column: 1 / -1;
+}
+
+.wcss-banner-middle {
+    grid-column: 1 / -1;
+}
+
+.wcss-banner-bottom {
+    grid-column: 1 / -1;
+}
+
+
+/* ==========================================================================
+   12. Did You Mean
+   ========================================================================== */
+
+.wcss-did-you-mean {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--wcss-spacing-sm);
+    padding: var(--wcss-spacing-md) 0;
+    margin-bottom: var(--wcss-spacing-md);
+    font-size: var(--wcss-font-size-sm);
+    color: var(--wcss-text-inverse);
+}
+
+.wcss-did-you-mean-label {
+    font-weight: 400;
+    color: var(--wcss-text-muted);
+}
+
+.wcss-did-you-mean a {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: var(--wcss-radius-full);
+    color: var(--wcss-text-inverse);
+    text-decoration: none;
+    font-weight: 500;
+    transition: background var(--wcss-transition-fast), border-color var(--wcss-transition-fast),
+        color var(--wcss-transition-fast);
+}
+
+.wcss-did-you-mean a:hover {
+    background: var(--wcss-primary);
+    border-color: var(--wcss-primary);
+    color: var(--wcss-white);
+}
+
+
+/* ==========================================================================
+   13. Recommendations Slider
+   ========================================================================== */
+
+.wcss-recommendations {
+    margin-top: var(--wcss-spacing-2xl);
+    padding-top: var(--wcss-spacing-xl);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.wcss-recommendations-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--wcss-spacing-lg);
+}
+
+.wcss-recommendations-title {
+    font-size: var(--wcss-font-size-xl);
+    font-weight: 700;
+    color: var(--wcss-text-inverse);
+    margin: 0;
+}
+
+.wcss-recommendations-nav {
+    display: flex;
+    gap: var(--wcss-spacing-sm);
+}
+
+.wcss-slider-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--wcss-radius-full);
+    background: transparent;
+    color: var(--wcss-text-inverse);
+    cursor: pointer;
+    transition: background var(--wcss-transition-fast), border-color var(--wcss-transition-fast),
+        color var(--wcss-transition-fast);
+}
+
+.wcss-slider-arrow:hover {
+    background: var(--wcss-primary);
+    border-color: var(--wcss-primary);
+    color: var(--wcss-white);
+}
+
+.wcss-slider-arrow:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.wcss-slider-arrow:disabled:hover {
+    background: transparent;
+    border-color: rgba(255, 255, 255, 0.2);
+    color: var(--wcss-text-inverse);
+}
+
+.wcss-slider-arrow svg {
+    width: 18px;
+    height: 18px;
+}
+
+.wcss-recommendations-slider {
+    display: flex;
+    gap: var(--wcss-spacing-md);
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: var(--wcss-spacing-sm);
+}
+
+.wcss-recommendations-slider::-webkit-scrollbar {
+    display: none;
+}
+
+.wcss-recommendation-card {
+    flex: 0 0 220px;
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    background: var(--wcss-surface);
+    border-radius: var(--wcss-radius-lg);
+    overflow: hidden;
+    box-shadow: var(--wcss-shadow);
+    transition: transform var(--wcss-transition), box-shadow var(--wcss-transition);
+    text-decoration: none;
+    color: inherit;
+}
+
+.wcss-recommendation-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--wcss-shadow-lg);
+}
+
+.wcss-recommendation-card .wcss-product-image {
+    padding-top: 100%;
+}
+
+.wcss-recommendation-card .wcss-product-info {
+    padding: var(--wcss-spacing-sm) var(--wcss-spacing-md);
+}
+
+.wcss-recommendation-card .wcss-product-name {
+    font-size: var(--wcss-font-size-xs);
+    -webkit-line-clamp: 1;
+}
+
+.wcss-recommendation-card .wcss-product-price {
+    gap: var(--wcss-spacing-xs);
+}
+
+.wcss-recommendation-card .wcss-product-price .sale,
+.wcss-recommendation-card .wcss-product-price .regular {
+    font-size: var(--wcss-font-size-sm);
+}
+
+.wcss-recommendation-card .wcss-product-price .original {
+    font-size: var(--wcss-font-size-xs);
+}
+
+
+/* ==========================================================================
+   14. Active Filters Tags
+   ========================================================================== */
+
+.wcss-active-filters {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--wcss-spacing-sm);
+    margin-bottom: var(--wcss-spacing-md);
+}
+
+.wcss-active-filter-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wcss-spacing-xs);
+    padding: 4px 10px;
+    background: var(--wcss-primary-light);
+    color: var(--wcss-primary);
+    border-radius: var(--wcss-radius-full);
+    font-size: var(--wcss-font-size-xs);
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: background var(--wcss-transition-fast);
+}
+
+.wcss-active-filter-tag:hover {
+    background: var(--wcss-primary);
+    color: var(--wcss-white);
+}
+
+.wcss-active-filter-tag .wcss-tag-remove {
+    display: flex;
+    align-items: center;
+    width: 14px;
+    height: 14px;
+    font-size: 14px;
+    line-height: 1;
+}
+
+.wcss-clear-all-filters {
+    font-size: var(--wcss-font-size-xs);
+    font-weight: 500;
+    color: var(--wcss-text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+    transition: color var(--wcss-transition-fast);
+}
+
+.wcss-clear-all-filters:hover {
+    color: var(--wcss-danger);
+}
+
+
+/* ==========================================================================
+   15. Pagination / Infinite Scroll Trigger
+   ========================================================================== */
+
+.wcss-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--wcss-spacing-xs);
+    margin-top: var(--wcss-spacing-xl);
+    padding: var(--wcss-spacing-md) 0;
+}
+
+.wcss-pagination-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    height: 40px;
+    padding: 0 var(--wcss-spacing-sm);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--wcss-radius);
+    background: transparent;
+    color: var(--wcss-text-inverse);
+    font-family: var(--wcss-font-family);
+    font-size: var(--wcss-font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background var(--wcss-transition-fast), border-color var(--wcss-transition-fast);
+}
+
+.wcss-pagination-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.wcss-pagination-btn.active {
+    background: var(--wcss-primary);
+    border-color: var(--wcss-primary);
+    color: var(--wcss-white);
+}
+
+.wcss-pagination-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.wcss-load-more {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--wcss-spacing-sm);
+    width: 100%;
+    max-width: 300px;
+    margin: var(--wcss-spacing-xl) auto 0;
+    padding: var(--wcss-spacing-md);
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    border-radius: var(--wcss-radius-lg);
+    background: transparent;
+    color: var(--wcss-text-inverse);
+    font-family: var(--wcss-font-family);
+    font-size: var(--wcss-font-size-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--wcss-transition-fast), border-color var(--wcss-transition-fast);
+}
+
+.wcss-load-more:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+
+/* ==========================================================================
+   16. Skeleton Loading States
+   ========================================================================== */
+
+@keyframes wcss-shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+.wcss-skeleton {
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.06) 25%,
+        rgba(255, 255, 255, 0.12) 50%,
+        rgba(255, 255, 255, 0.06) 75%
+    );
+    background-size: 200% 100%;
+    animation: wcss-shimmer 1.5s ease-in-out infinite;
+    border-radius: var(--wcss-radius);
+}
+
+.wcss-skeleton-card {
+    border-radius: var(--wcss-radius-lg);
+    overflow: hidden;
+}
+
+.wcss-skeleton-card .wcss-skeleton-image {
+    width: 100%;
+    padding-top: 100%;
+}
+
+.wcss-skeleton-card .wcss-skeleton-text {
+    height: 14px;
+    margin: var(--wcss-spacing-sm) var(--wcss-spacing-md);
+    border-radius: var(--wcss-radius-sm);
+}
+
+.wcss-skeleton-card .wcss-skeleton-text.short {
+    width: 60%;
+}
+
+.wcss-skeleton-card .wcss-skeleton-price {
+    height: 20px;
+    width: 40%;
+    margin: var(--wcss-spacing-sm) var(--wcss-spacing-md) var(--wcss-spacing-md);
+    border-radius: var(--wcss-radius-sm);
+}
+
+
+/* ==========================================================================
+   17. Scrollbar Styling (Results Wrapper)
+   ========================================================================== */
+
+.wcss-results-wrapper::-webkit-scrollbar {
+    width: 6px;
+}
+
+.wcss-results-wrapper::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.wcss-results-wrapper::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: var(--wcss-radius-full);
+}
+
+.wcss-results-wrapper::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.35);
+}
+
+
+/* ==========================================================================
+   18. Animations & Keyframes
+   ========================================================================== */
+
+/* Overlay entrance */
+@keyframes wcss-fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes wcss-fadeOut {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+/* Product card stagger entrance */
+@keyframes wcss-cardEntrance {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.wcss-results-grid .wcss-product-card {
+    animation: wcss-cardEntrance var(--wcss-transition-slow) ease forwards;
+    opacity: 0;
+}
+
+.wcss-results-grid .wcss-product-card:nth-child(1) { animation-delay: 0.05s; }
+.wcss-results-grid .wcss-product-card:nth-child(2) { animation-delay: 0.1s; }
+.wcss-results-grid .wcss-product-card:nth-child(3) { animation-delay: 0.15s; }
+.wcss-results-grid .wcss-product-card:nth-child(4) { animation-delay: 0.2s; }
+.wcss-results-grid .wcss-product-card:nth-child(5) { animation-delay: 0.25s; }
+.wcss-results-grid .wcss-product-card:nth-child(6) { animation-delay: 0.3s; }
+.wcss-results-grid .wcss-product-card:nth-child(7) { animation-delay: 0.35s; }
+.wcss-results-grid .wcss-product-card:nth-child(8) { animation-delay: 0.4s; }
+.wcss-results-grid .wcss-product-card:nth-child(n+9) { animation-delay: 0.45s; }
+
+/* Pulse for loading button */
+@keyframes wcss-pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.wcss-loading-pulse {
+    animation: wcss-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+
+/* ==========================================================================
+   19. Accessibility
+   ========================================================================== */
+
+/* Visible focus indicators */
+.wcss-overlay *:focus-visible {
+    outline: 2px solid var(--wcss-primary);
+    outline-offset: 2px;
+}
+
+/* Skip to results link */
+.wcss-skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    padding: var(--wcss-spacing-sm) var(--wcss-spacing-md);
+    background: var(--wcss-primary);
+    color: var(--wcss-white);
+    z-index: 10;
+    border-radius: var(--wcss-radius);
+    text-decoration: none;
+    font-size: var(--wcss-font-size-sm);
+    font-weight: 600;
+    transition: top var(--wcss-transition-fast);
+}
+
+.wcss-skip-link:focus {
+    top: var(--wcss-spacing-sm);
+}
+
+/* Screen reader only */
+.wcss-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    .wcss-overlay,
+    .wcss-overlay *,
+    .wcss-mobile-filters,
+    .wcss-product-card,
+    .wcss-suggestions,
+    .wcss-slider-arrow,
+    .wcss-recommendation-card {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+    }
+}
+
+
+/* ==========================================================================
+   20. Responsive — Tablet (max-width: 1024px)
+   ========================================================================== */
+
+@media screen and (max-width: 1024px) {
+    .wcss-results-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--wcss-spacing-md);
+    }
+
+    .wcss-filters-sidebar {
+        display: none;
+    }
+
+    .wcss-filters-toggle {
+        display: inline-flex;
+    }
+
+    .wcss-results-container {
+        padding: var(--wcss-spacing-md) var(--wcss-spacing-lg);
+    }
+
+    .wcss-search-header {
+        padding: var(--wcss-spacing-md) var(--wcss-spacing-lg);
+    }
+
+    .wcss-recommendation-card {
+        flex: 0 0 190px;
+    }
+}
+
+
+/* ==========================================================================
+   21. Responsive — Mobile (max-width: 768px)
+   ========================================================================== */
+
+@media screen and (max-width: 768px) {
+    :root {
+        --wcss-header-height: 64px;
+    }
+
+    .wcss-results-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--wcss-spacing-sm);
+    }
+
+    .wcss-results-container {
+        padding: var(--wcss-spacing-md);
+    }
+
+    .wcss-search-header {
+        padding: var(--wcss-spacing-sm) var(--wcss-spacing-md);
+        gap: var(--wcss-spacing-sm);
+    }
+
+    .wcss-search-input {
+        height: 44px;
+        font-size: var(--wcss-font-size-base);
+    }
+
+    .wcss-close-btn {
+        width: 38px;
+        height: 38px;
+    }
+
+    .wcss-product-info {
+        padding: var(--wcss-spacing-sm);
+    }
+
+    .wcss-product-name {
+        font-size: var(--wcss-font-size-xs);
+    }
+
+    .wcss-product-price .sale,
+    .wcss-product-price .regular {
+        font-size: var(--wcss-font-size-base);
+    }
+
+    .wcss-product-price .original {
+        font-size: var(--wcss-font-size-xs);
+    }
+
+    .wcss-product-brand {
+        font-size: 0.65rem;
+    }
+
+    .wcss-add-to-cart-btn {
+        padding: 6px var(--wcss-spacing-sm);
+        font-size: var(--wcss-font-size-xs);
+    }
+
+    .wcss-results-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .wcss-suggestions {
+        border-radius: 0;
+        max-height: 60vh;
+    }
+
+    .wcss-recommendations-title {
+        font-size: var(--wcss-font-size-lg);
+    }
+
+    .wcss-recommendation-card {
+        flex: 0 0 160px;
+    }
+
+    .wcss-slider-arrow {
+        width: 34px;
+        height: 34px;
+    }
+
+    .wcss-banner {
+        border-radius: var(--wcss-radius);
+    }
+
+    .wcss-did-you-mean {
+        font-size: var(--wcss-font-size-xs);
+    }
+
+    .wcss-pagination-btn {
+        min-width: 36px;
+        height: 36px;
+        font-size: var(--wcss-font-size-xs);
+    }
+
+    .wcss-mobile-filters {
+        width: 100%;
+        max-width: 100%;
+    }
+}
+
+
+/* ==========================================================================
+   22. Responsive — Small Mobile (max-width: 480px)
+   ========================================================================== */
+
+@media screen and (max-width: 480px) {
+    .wcss-results-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .wcss-product-card {
+        border-radius: var(--wcss-radius);
+    }
+
+    .wcss-product-info {
+        padding: 8px;
+        gap: 2px;
+    }
+
+    .wcss-product-badge {
+        font-size: 0.625rem;
+        padding: 2px 6px;
+    }
+
+    .wcss-results-container {
+        padding: var(--wcss-spacing-sm);
+    }
+
+    .wcss-add-to-cart-btn span {
+        display: none;
+    }
+
+    .wcss-add-to-cart-btn svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    .wcss-recommendation-card {
+        flex: 0 0 140px;
+    }
+}
+
+
+/* ==========================================================================
+   23. Dark Mode (System Preference)
+   ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --wcss-surface: #1a1a2e;
+        --wcss-surface-elevated: #1e1e36;
+        --wcss-surface-hover: #252540;
+        --wcss-text-primary: #f1f5f9;
+        --wcss-text-secondary: #94a3b8;
+        --wcss-text-muted: #64748b;
+        --wcss-border: #334155;
+        --wcss-gray-100: #1e293b;
+        --wcss-gray-200: #334155;
+        --wcss-primary-light: rgba(37, 99, 235, 0.2);
+        --wcss-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+        --wcss-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+        --wcss-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
+        --wcss-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.4), 0 4px 6px rgba(0, 0, 0, 0.3);
+        --wcss-shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.5), 0 10px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .wcss-search-trigger {
+        color: var(--wcss-text-primary);
+    }
+
+    .wcss-search-trigger:hover {
+        background: var(--wcss-gray-200);
+    }
+
+    .wcss-product-card {
+        background: var(--wcss-surface);
+        border: 1px solid var(--wcss-border);
+    }
+
+    .wcss-product-image {
+        background: var(--wcss-gray-100);
+    }
+
+    .wcss-search-clear {
+        background: var(--wcss-gray-200);
+    }
+
+    .wcss-search-clear:hover {
+        background: var(--wcss-gray-100);
+    }
+
+    .wcss-close-btn {
+        background: var(--wcss-gray-200);
+    }
+
+    .wcss-close-btn:hover {
+        background: var(--wcss-gray-100);
+    }
+
+    .wcss-suggestion-item:hover,
+    .wcss-suggestion-item.active {
+        background: rgba(37, 99, 235, 0.15);
+    }
+
+    .wcss-suggestion-item-icon {
+        background: var(--wcss-gray-200);
+    }
+
+    .wcss-suggestion-item--popular .wcss-suggestion-count {
+        background: var(--wcss-gray-200);
+    }
+
+    .wcss-active-filter-tag {
+        background: rgba(37, 99, 235, 0.2);
+    }
+
+    .wcss-active-filter-tag:hover {
+        background: var(--wcss-primary);
+    }
+
+    .wcss-recommendation-card {
+        background: var(--wcss-surface);
+        border: 1px solid var(--wcss-border);
+    }
+
+    .wcss-skeleton {
+        background: linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0.04) 25%,
+            rgba(255, 255, 255, 0.08) 50%,
+            rgba(255, 255, 255, 0.04) 75%
+        );
+        background-size: 200% 100%;
+    }
+}
+
+
+/* ==========================================================================
+   24. Dark Mode (Class-Based)
+   ========================================================================== */
+
+.wcss-dark-mode {
+    --wcss-surface: #1a1a2e;
+    --wcss-surface-elevated: #1e1e36;
+    --wcss-surface-hover: #252540;
+    --wcss-text-primary: #f1f5f9;
+    --wcss-text-secondary: #94a3b8;
+    --wcss-text-muted: #64748b;
+    --wcss-border: #334155;
+    --wcss-gray-100: #1e293b;
+    --wcss-gray-200: #334155;
+    --wcss-primary-light: rgba(37, 99, 235, 0.2);
+    --wcss-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --wcss-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+    --wcss-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
+    --wcss-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.4), 0 4px 6px rgba(0, 0, 0, 0.3);
+    --wcss-shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.5), 0 10px 10px rgba(0, 0, 0, 0.3);
+}
+
+.wcss-dark-mode .wcss-search-trigger {
+    color: var(--wcss-text-primary);
+}
+
+.wcss-dark-mode .wcss-search-trigger:hover {
+    background: var(--wcss-gray-200);
+}
+
+.wcss-dark-mode .wcss-product-card {
+    background: var(--wcss-surface);
+    border: 1px solid var(--wcss-border);
+}
+
+.wcss-dark-mode .wcss-product-image {
+    background: var(--wcss-gray-100);
+}
+
+.wcss-dark-mode .wcss-search-clear {
+    background: var(--wcss-gray-200);
+}
+
+.wcss-dark-mode .wcss-search-clear:hover {
+    background: var(--wcss-gray-100);
+}
+
+.wcss-dark-mode .wcss-close-btn {
+    background: var(--wcss-gray-200);
+}
+
+.wcss-dark-mode .wcss-close-btn:hover {
+    background: var(--wcss-gray-100);
+}
+
+.wcss-dark-mode .wcss-suggestion-item:hover,
+.wcss-dark-mode .wcss-suggestion-item.active {
+    background: rgba(37, 99, 235, 0.15);
+}
+
+.wcss-dark-mode .wcss-suggestion-item-icon {
+    background: var(--wcss-gray-200);
+}
+
+.wcss-dark-mode .wcss-suggestion-item--popular .wcss-suggestion-count {
+    background: var(--wcss-gray-200);
+}
+
+.wcss-dark-mode .wcss-active-filter-tag {
+    background: rgba(37, 99, 235, 0.2);
+}
+
+.wcss-dark-mode .wcss-active-filter-tag:hover {
+    background: var(--wcss-primary);
+}
+
+.wcss-dark-mode .wcss-recommendation-card {
+    background: var(--wcss-surface);
+    border: 1px solid var(--wcss-border);
+}
+
+.wcss-dark-mode .wcss-skeleton {
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0.04) 25%,
+        rgba(255, 255, 255, 0.08) 50%,
+        rgba(255, 255, 255, 0.04) 75%
+    );
+    background-size: 200% 100%;
+}
+
+
+/* ==========================================================================
+   25. Print Styles
+   ========================================================================== */
+
+@media print {
+    .wcss-overlay,
+    .wcss-search-trigger {
+        display: none !important;
+    }
+}
+
+
+/* ==========================================================================
+   26. High Contrast Mode
+   ========================================================================== */
+
+@media (forced-colors: active) {
+    .wcss-product-card {
+        border: 1px solid ButtonText;
+    }
+
+    .wcss-search-input {
+        border: 1px solid ButtonText;
+    }
+
+    .wcss-add-to-cart-btn {
+        border: 1px solid ButtonText;
+    }
+
+    .wcss-filter-checkbox .wcss-checkbox-visual {
+        border: 2px solid ButtonText;
+    }
+
+    .wcss-close-btn {
+        border: 1px solid ButtonText;
+    }
+
+    .wcss-slider-arrow {
+        border: 1px solid ButtonText;
+    }
+
+    .wcss-pagination-btn {
+        border: 1px solid ButtonText;
+    }
+}

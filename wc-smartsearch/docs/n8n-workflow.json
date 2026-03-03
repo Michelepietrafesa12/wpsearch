@@ -1,0 +1,36 @@
+{
+  "name": "WC SmartSearch Analytics",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wcss-analytics",
+        "responseMode": "responseNode"
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const body = $input.first().json.body;\nreturn [{\n  json: {\n    event: body.event,\n    query: body.data?.query || '',\n    product_id: body.data?.product_id || 0,\n    session_id: body.data?.session_id || '',\n    timestamp: body.timestamp,\n    site_url: body.site_url\n  }\n}];"
+      },
+      "name": "Parse Data",
+      "type": "n8n-nodes-base.code",
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"status\": \"ok\"}"
+      },
+      "name": "Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [650, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[ { "node": "Parse Data", "type": "main", "index": 0 } ]] },
+    "Parse Data": { "main": [[ { "node": "Response", "type": "main", "index": 0 } ]] }
+  }
+}

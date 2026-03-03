@@ -12,344 +12,219 @@
     /* ---------------------------------------------------------------
      * 0. PARAMS & CONSTANTS
      * ------------------------------------------------------------- */
-    var P = window.wcss_params || {};
-
-    var AJAX_URL         = P.ajax_url  || '/wp-admin/admin-ajax.php';
-    var NONCE            = P.nonce     || '';
-    var MIN_CHARS        = parseInt(P.min_chars, 10) || 2;
-    var MAX_RESULTS      = parseInt(P.max_results, 10) || 200;
-    var PER_PAGE         = parseInt(P.results_per_page, 10) || 24;
-    var DEBOUNCE_DELAY   = parseInt(P.debounce_delay, 10) || 300;
-    var CACHE_TTL        = (parseInt(P.cache_ttl, 10) || 300) * 1000; // ms
-    var CURRENCY         = P.currency_symbol || '$';
-    var I18N             = P.i18n || {};
+    var P            = window.wcss_params || {};
+    var AJAX_URL     = P.ajax_url  || '/wp-admin/admin-ajax.php';
+    var NONCE        = P.nonce     || '';
+    var MIN_CHARS    = parseInt(P.min_chars, 10) || 2;
+    var MAX_RESULTS  = parseInt(P.max_results, 10) || 200;
+    var PER_PAGE     = parseInt(P.results_per_page, 10) || 24;
+    var DEBOUNCE_MS  = parseInt(P.debounce_delay, 10) || 300;
+    var CACHE_TTL    = (parseInt(P.cache_ttl, 10) || 300) * 1000;
+    var CURRENCY     = P.currency_symbol || '$';
+    var I18N         = P.i18n || {};
 
     /* ---------------------------------------------------------------
      * 1. UTILITY HELPERS
      * ------------------------------------------------------------- */
-
-    /** Debounce helper. Returns debounced function with .cancel(). */
     function debounce(fn, delay) {
-        var timer = null;
-        var debounced = function () {
-            var ctx = this;
-            var args = arguments;
-            clearTimeout(timer);
-            timer = setTimeout(function () { fn.apply(ctx, args); }, delay);
+        var t;
+        var f = function () {
+            var ctx = this, args = arguments;
+            clearTimeout(t);
+            t = setTimeout(function () { fn.apply(ctx, args); }, delay);
         };
-        debounced.cancel = function () { clearTimeout(timer); };
-        return debounced;
+        f.cancel = function () { clearTimeout(t); };
+        return f;
     }
 
-    /** Shorthand for document.createElement + optional className. */
-    function el(tag, className, attrs) {
-        var node = document.createElement(tag);
-        if (className) node.className = className;
-        if (attrs) {
-            Object.keys(attrs).forEach(function (k) { node.setAttribute(k, attrs[k]); });
-        }
-        return node;
+    function el(tag, cls, attrs) {
+        var n = document.createElement(tag);
+        if (cls) n.className = cls;
+        if (attrs) Object.keys(attrs).forEach(function (k) { n.setAttribute(k, attrs[k]); });
+        return n;
     }
 
-    /** Escape HTML entities. */
-    function esc(str) {
+    function esc(s) {
         var d = document.createElement('div');
-        d.appendChild(document.createTextNode(str || ''));
+        d.appendChild(document.createTextNode(s || ''));
         return d.innerHTML;
     }
 
-    /** Format price with currency symbol. */
-    function formatPrice(value) {
-        var num = parseFloat(value);
-        if (isNaN(num)) return '';
-        return CURRENCY + num.toFixed(2);
+    function formatPrice(v) {
+        var n = parseFloat(v);
+        return isNaN(n) ? '' : CURRENCY + n.toFixed(2);
     }
 
-    /** Generate a UUID-like session ID. */
-    function generateSessionId() {
+    function genId() {
         return 'xxxx-xxxx-xxxx'.replace(/x/g, function () {
             return ((Math.random() * 16) | 0).toString(16);
         }) + '-' + Date.now().toString(36);
     }
 
-    /** Read a cookie value by name. */
     function getCookie(name) {
-        var match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
-        return match ? decodeURIComponent(match[1]) : '';
+        var m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+        return m ? decodeURIComponent(m[1]) : '';
     }
 
-    /** Set a cookie. */
-    function setCookie(name, value, days) {
-        var expires = '';
-        if (days) {
-            var d = new Date();
-            d.setTime(d.getTime() + days * 86400000);
-            expires = '; expires=' + d.toUTCString();
-        }
-        document.cookie = name + '=' + encodeURIComponent(value) + expires + '; path=/; SameSite=Lax';
+    function setCookie(name, val, days) {
+        var exp = '';
+        if (days) { var d = new Date(); d.setTime(d.getTime() + days * 864e5); exp = '; expires=' + d.toUTCString(); }
+        document.cookie = name + '=' + encodeURIComponent(val) + exp + '; path=/; SameSite=Lax';
     }
+
+    function svgIcon(paths, w) {
+        w = w || 20;
+        return '<svg width="' + w + '" height="' + w + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' + paths + '</svg>';
+    }
+
+    var ICON_SEARCH = svgIcon('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>');
+    var ICON_CLOSE  = svgIcon('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>', 24);
+    var ICON_X      = svgIcon('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>', 18);
+    var ICON_PREV   = svgIcon('<polyline points="15 18 9 12 15 6"/>', 24);
+    var ICON_NEXT   = svgIcon('<polyline points="9 18 15 12 9 6"/>', 24);
 
     /* ---------------------------------------------------------------
      * 2. SESSION TRACKING
      * ------------------------------------------------------------- */
-    var Session = {
-        id: '',
-        searchSession: '',
+    var Session = { id: '', searchSession: '' };
 
-        init: function () {
-            this.id = getCookie('wcss_session');
-            if (!this.id) {
-                this.id = generateSessionId();
-                setCookie('wcss_session', this.id, 30);
-            }
-            this.searchSession = getCookie('wcss_search_session');
-            if (!this.searchSession) {
-                this.searchSession = generateSessionId();
-                setCookie('wcss_search_session', this.searchSession, 1);
-            }
-        }
-    };
+    function initSession() {
+        Session.id = getCookie('wcss_session') || (function () { var v = genId(); setCookie('wcss_session', v, 30); return v; })();
+        Session.searchSession = getCookie('wcss_search_session') || (function () { var v = genId(); setCookie('wcss_search_session', v, 1); return v; })();
+    }
 
     /* ---------------------------------------------------------------
      * 3. CLIENT-SIDE CACHE
      * ------------------------------------------------------------- */
-    var Cache = {
-        _store: {},
+    var _cache = {};
 
-        _key: function (action, params) {
-            return action + ':' + JSON.stringify(params);
-        },
+    function cacheKey(action, params) { return action + ':' + JSON.stringify(params); }
 
-        get: function (action, params) {
-            var key = this._key(action, params);
-            var entry = this._store[key];
-            if (!entry) return null;
-            if (Date.now() - entry.ts > CACHE_TTL) {
-                delete this._store[key];
-                return null;
-            }
-            return entry.data;
-        },
+    function cacheGet(action, params) {
+        var e = _cache[cacheKey(action, params)];
+        if (!e) return null;
+        if (Date.now() - e.ts > CACHE_TTL) { delete _cache[cacheKey(action, params)]; return null; }
+        return e.data;
+    }
 
-        set: function (action, params, data) {
-            var key = this._key(action, params);
-            this._store[key] = { data: data, ts: Date.now() };
-        },
+    function cacheSet(action, params, data) {
+        _cache[cacheKey(action, params)] = { data: data, ts: Date.now() };
+    }
 
-        clear: function () {
-            this._store = {};
-        }
-    };
+    function cacheClear() { _cache = {}; }
 
     /* ---------------------------------------------------------------
-     * 4. ABORT CONTROLLER MANAGER
+     * 4. ABORT CONTROLLER
      * ------------------------------------------------------------- */
-    var Requests = {
-        _controllers: {},
+    var _controllers = {};
 
-        /** Abort the previous request for this channel and return a new AbortSignal. */
-        start: function (channel) {
-            if (this._controllers[channel]) {
-                this._controllers[channel].abort();
-            }
-            this._controllers[channel] = new AbortController();
-            return this._controllers[channel].signal;
-        },
+    function abortStart(ch) {
+        if (_controllers[ch]) _controllers[ch].abort();
+        _controllers[ch] = new AbortController();
+        return _controllers[ch].signal;
+    }
 
-        clear: function (channel) {
-            delete this._controllers[channel];
-        }
-    };
+    function abortClear(ch) { delete _controllers[ch]; }
 
     /* ---------------------------------------------------------------
      * 5. AJAX HELPERS
      * ------------------------------------------------------------- */
-
-    /**
-     * GET request to admin-ajax.php.
-     * @param {string}   action    WP AJAX action name
-     * @param {object}   params    Query params (q, offset, etc.)
-     * @param {object}   opts      { signal, useCache }
-     * @returns {Promise<object>}
-     */
     function ajaxGet(action, params, opts) {
         opts = opts || {};
-        var useCache = opts.useCache !== false;
-
-        if (useCache) {
-            var cached = Cache.get(action, params);
+        if (opts.useCache !== false) {
+            var cached = cacheGet(action, params);
             if (cached) return Promise.resolve(cached);
         }
-
-        var url = new URL(AJAX_URL, window.location.origin);
+        var url = new URL(AJAX_URL, location.origin);
         url.searchParams.set('action', action);
         url.searchParams.set('nonce', NONCE);
         Object.keys(params).forEach(function (k) {
-            if (params[k] !== '' && params[k] !== null && params[k] !== undefined) {
-                url.searchParams.set(k, params[k]);
-            }
+            if (params[k] !== '' && params[k] != null) url.searchParams.set(k, params[k]);
         });
-
-        return fetch(url.toString(), {
-            method: 'GET',
-            credentials: 'same-origin',
-            signal: opts.signal || undefined
-        })
-        .then(function (resp) {
-            if (!resp.ok) throw new Error('HTTP ' + resp.status);
-            return resp.json();
-        })
-        .then(function (data) {
-            if (useCache) Cache.set(action, params, data);
-            return data;
-        });
+        return fetch(url.toString(), { method: 'GET', credentials: 'same-origin', signal: opts.signal })
+            .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+            .then(function (d) { if (opts.useCache !== false) cacheSet(action, params, d); return d; });
     }
 
-    /**
-     * POST request to admin-ajax.php.
-     */
     function ajaxPost(action, body, opts) {
         opts = opts || {};
-        var url = new URL(AJAX_URL, window.location.origin);
+        var url = new URL(AJAX_URL, location.origin);
         url.searchParams.set('action', action);
         url.searchParams.set('nonce', NONCE);
-
         return fetch(url.toString(), {
-            method: 'POST',
-            credentials: 'same-origin',
+            method: 'POST', credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-            signal: opts.signal || undefined
-        })
-        .then(function (resp) {
-            if (!resp.ok) throw new Error('HTTP ' + resp.status);
-            return resp.json();
-        });
+            body: JSON.stringify(body), signal: opts.signal
+        }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
     }
 
     /* ---------------------------------------------------------------
      * 6. ANALYTICS
      * ------------------------------------------------------------- */
-    var Analytics = {
-        /** Track an event. event_type: search | click | add_to_cart */
-        track: function (eventType, data) {
-            var body = Object.assign({
-                event_type: eventType,
-                session_id: Session.id
-            }, data || {});
-
-            // Fire and forget -- we don't await this
-            ajaxPost('wcss_analytics', body).catch(function () { /* silent */ });
-        }
-    };
+    function trackEvent(type, data) {
+        ajaxPost('wcss_analytics', Object.assign({ event_type: type, session_id: Session.id }, data || {}))
+            .catch(function () { /* silent */ });
+    }
 
     /* ---------------------------------------------------------------
-     * 7. OVERLAY DOM (LAZY)
+     * 7. OVERLAY DOM (LAZY BUILD)
      * ------------------------------------------------------------- */
-    var overlayBuilt = false;
-    var DOM = {};
+    var overlayReady = false;
+    var overlayOpen  = false;
+    var D = {}; // DOM references
 
     function buildOverlay() {
-        if (overlayBuilt) return;
-        overlayBuilt = true;
+        if (overlayReady) return;
+        overlayReady = true;
 
-        // Overlay root
-        DOM.overlay = el('div', 'wcss-overlay');
-        DOM.overlay.setAttribute('role', 'dialog');
-        DOM.overlay.setAttribute('aria-label', I18N.search_placeholder || 'Search');
-        DOM.overlay.setAttribute('aria-modal', 'true');
+        D.overlay = el('div', 'wcss-overlay', { role: 'dialog', 'aria-label': I18N.search_placeholder || 'Search', 'aria-modal': 'true' });
 
-        // Header
-        var header = el('div', 'wcss-overlay__header');
+        // -- Header --
+        var header   = el('div', 'wcss-overlay__header');
+        var inputW   = el('div', 'wcss-overlay__input-wrap');
+        var iconSpan = el('span', 'wcss-overlay__search-icon');
+        iconSpan.innerHTML = ICON_SEARCH;
 
-        // Search input wrapper
-        var inputWrap = el('div', 'wcss-overlay__input-wrap');
-        DOM.searchIcon = el('span', 'wcss-overlay__search-icon');
-        DOM.searchIcon.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+        D.input = el('input', 'wcss-overlay__input', { type: 'search', placeholder: I18N.search_placeholder || 'Search products...', autocomplete: 'off', 'aria-autocomplete': 'list', 'aria-controls': 'wcss-suggestions-list' });
 
-        DOM.input = el('input', 'wcss-overlay__input', {
-            type: 'search',
-            placeholder: I18N.search_placeholder || 'Search products...',
-            autocomplete: 'off',
-            'aria-autocomplete': 'list',
-            'aria-controls': 'wcss-suggestions-list'
-        });
+        D.clearBtn = el('button', 'wcss-overlay__clear', { type: 'button', 'aria-label': 'Clear' });
+        D.clearBtn.innerHTML = ICON_X;
+        D.clearBtn.style.display = 'none';
 
-        DOM.clearBtn = el('button', 'wcss-overlay__clear', { type: 'button', 'aria-label': 'Clear' });
-        DOM.clearBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
-        DOM.clearBtn.style.display = 'none';
+        inputW.append(iconSpan, D.input, D.clearBtn);
 
-        inputWrap.appendChild(DOM.searchIcon);
-        inputWrap.appendChild(DOM.input);
-        inputWrap.appendChild(DOM.clearBtn);
+        D.closeBtn = el('button', 'wcss-overlay__close', { type: 'button', 'aria-label': 'Close' });
+        D.closeBtn.innerHTML = ICON_CLOSE;
+        header.append(inputW, D.closeBtn);
 
-        // Close button
-        DOM.closeBtn = el('button', 'wcss-overlay__close', { type: 'button', 'aria-label': 'Close' });
-        DOM.closeBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+        // -- Suggestions --
+        D.suggestions = el('div', 'wcss-suggestions', { id: 'wcss-suggestions-list', role: 'listbox' });
+        D.suggestions.style.display = 'none';
 
-        header.appendChild(inputWrap);
-        header.appendChild(DOM.closeBtn);
-
-        // Suggestions dropdown
-        DOM.suggestionsWrap = el('div', 'wcss-suggestions');
-        DOM.suggestionsWrap.id = 'wcss-suggestions-list';
-        DOM.suggestionsWrap.setAttribute('role', 'listbox');
-        DOM.suggestionsWrap.style.display = 'none';
-
-        // Body (content area)
+        // -- Body --
         var body = el('div', 'wcss-overlay__body');
 
-        // Filters sidebar
-        DOM.filtersPanel = el('aside', 'wcss-filters');
-        DOM.filtersPanel.innerHTML = '<div class="wcss-filters__inner"></div>';
+        D.filtersPanel = el('aside', 'wcss-filters');
+        D.filtersPanel.innerHTML = '<div class="wcss-filters__inner"></div>';
 
-        // Mobile filter toggle
-        DOM.mobileFilterBtn = el('button', 'wcss-overlay__mobile-filter-btn', { type: 'button' });
-        DOM.mobileFilterBtn.textContent = I18N.show_filters || 'Show filters';
+        D.mobileFilterBtn = el('button', 'wcss-overlay__mobile-filter-btn', { type: 'button' });
+        D.mobileFilterBtn.textContent = I18N.show_filters || 'Show filters';
 
-        // Main results area
-        var mainArea = el('div', 'wcss-overlay__main');
+        D.main       = el('div', 'wcss-overlay__main');
+        D.statusBar  = el('div', 'wcss-overlay__status');
+        D.bannersTop = el('div', 'wcss-banners wcss-banners--top');
+        D.grid       = el('div', 'wcss-grid');
+        D.bannersBtm = el('div', 'wcss-banners wcss-banners--bottom');
+        D.loader     = el('div', 'wcss-loader');
+        D.loader.innerHTML = '<div class="wcss-loader__spinner"></div><span>' + esc(I18N.loading || 'Loading...') + '</span>';
+        D.loader.style.display = 'none';
+        D.noResults  = el('div', 'wcss-no-results');
+        D.noResults.style.display = 'none';
 
-        // Status bar (result count, did-you-mean)
-        DOM.statusBar = el('div', 'wcss-overlay__status');
-
-        // Banners top
-        DOM.bannersTop = el('div', 'wcss-banners wcss-banners--top');
-
-        // Product grid
-        DOM.grid = el('div', 'wcss-grid');
-
-        // Banners bottom
-        DOM.bannersBottom = el('div', 'wcss-banners wcss-banners--bottom');
-
-        // Loading spinner
-        DOM.loader = el('div', 'wcss-loader');
-        DOM.loader.innerHTML = '<div class="wcss-loader__spinner"></div><span>' + esc(I18N.loading || 'Loading...') + '</span>';
-        DOM.loader.style.display = 'none';
-
-        // "No results" message
-        DOM.noResults = el('div', 'wcss-no-results');
-        DOM.noResults.style.display = 'none';
-
-        mainArea.appendChild(DOM.mobileFilterBtn);
-        mainArea.appendChild(DOM.statusBar);
-        mainArea.appendChild(DOM.bannersTop);
-        mainArea.appendChild(DOM.grid);
-        mainArea.appendChild(DOM.bannersBottom);
-        mainArea.appendChild(DOM.loader);
-        mainArea.appendChild(DOM.noResults);
-
-        body.appendChild(DOM.filtersPanel);
-        body.appendChild(mainArea);
-
-        DOM.overlay.appendChild(header);
-        DOM.overlay.appendChild(DOM.suggestionsWrap);
-        DOM.overlay.appendChild(body);
-
-        document.body.appendChild(DOM.overlay);
-
-        // Store reference to main scrollable area for infinite scroll
-        DOM.mainArea = mainArea;
+        D.main.append(D.mobileFilterBtn, D.statusBar, D.bannersTop, D.grid, D.bannersBtm, D.loader, D.noResults);
+        body.append(D.filtersPanel, D.main);
+        D.overlay.append(header, D.suggestions, body);
+        document.body.appendChild(D.overlay);
 
         bindOverlayEvents();
     }
@@ -357,1086 +232,615 @@
     /* ---------------------------------------------------------------
      * 8. OVERLAY OPEN / CLOSE
      * ------------------------------------------------------------- */
-    var overlayOpen = false;
-
     function openOverlay() {
         buildOverlay();
         overlayOpen = true;
-        DOM.overlay.classList.add('wcss-overlay--open');
+        D.overlay.classList.add('wcss-overlay--open');
         document.body.classList.add('wcss-body-no-scroll');
-        DOM.input.focus();
+        D.input.focus();
+        applyThemeAttr();
     }
 
     function closeOverlay() {
         if (!overlayOpen) return;
         overlayOpen = false;
-        DOM.overlay.classList.remove('wcss-overlay--open');
+        D.overlay.classList.remove('wcss-overlay--open');
         document.body.classList.remove('wcss-body-no-scroll');
-        Suggestions.hide();
+        hideSuggestions();
         debouncedSearch.cancel();
     }
 
     /* ---------------------------------------------------------------
      * 9. SEARCH STATE
      * ------------------------------------------------------------- */
-    var State = {
-        query: '',
-        offset: 0,
-        totalLoaded: 0,
-        totalCount: 0,
-        hasMore: false,
-        loading: false,
-        products: [],
-        facets: null,
-        filters: {
-            price_min: 0,
-            price_max: 0,
-            category: [],
-            manufacturer: []
-        }
+    var S = { query: '', offset: 0, loaded: 0, total: 0, hasMore: false, loading: false, products: [], facets: null,
+        filters: { price_min: 0, price_max: 0, category: [], manufacturer: [] }
     };
 
     function resetState() {
-        State.offset = 0;
-        State.totalLoaded = 0;
-        State.totalCount = 0;
-        State.hasMore = false;
-        State.loading = false;
-        State.products = [];
-        State.facets = null;
+        S.offset = 0; S.loaded = 0; S.total = 0; S.hasMore = false; S.loading = false; S.products = []; S.facets = null;
     }
-
     function resetFilters() {
-        State.filters = { price_min: 0, price_max: 0, category: [], manufacturer: [] };
+        S.filters = { price_min: 0, price_max: 0, category: [], manufacturer: [] };
     }
 
     /* ---------------------------------------------------------------
      * 10. SEARCH EXECUTION
      * ------------------------------------------------------------- */
-
     function executeSearch(append) {
-        if (State.loading) return;
+        if (S.loading) return;
+        var q = S.query.trim();
+        if (q.length < MIN_CHARS) { clearResults(); return; }
 
-        var q = State.query.trim();
-        if (q.length < MIN_CHARS) {
-            clearResults();
-            return;
-        }
+        if (!append) { resetState(); S.query = q; }
+        if (S.loaded >= MAX_RESULTS) return;
 
-        if (!append) {
-            resetState();
-            State.query = q;
-        }
-
-        if (State.totalLoaded >= MAX_RESULTS) return;
-
-        State.loading = true;
+        S.loading = true;
         showLoader(true);
 
-        var signal = Requests.start('search');
+        var sig = abortStart('search');
+        var params = { q: q, offset: S.offset, limit: PER_PAGE };
+        if (S.filters.price_min > 0)          params.price_min    = S.filters.price_min;
+        if (S.filters.price_max > 0)          params.price_max    = S.filters.price_max;
+        if (S.filters.category.length)        params.category     = S.filters.category.join(',');
+        if (S.filters.manufacturer.length)    params.manufacturer = S.filters.manufacturer.join(',');
 
-        var params = {
-            q: q,
-            offset: State.offset,
-            limit: PER_PAGE
-        };
+        ajaxGet('wcss_search', params, { signal: sig }).then(function (data) {
+            S.loading = false;
+            showLoader(false);
+            abortClear('search');
 
-        // Append filter params
-        if (State.filters.price_min > 0) params.price_min = State.filters.price_min;
-        if (State.filters.price_max > 0) params.price_max = State.filters.price_max;
-        if (State.filters.category.length) params.category = State.filters.category.join(',');
-        if (State.filters.manufacturer.length) params.manufacturer = State.filters.manufacturer.join(',');
+            var prods = data.products || [];
+            S.total   = data.total_count || 0;
+            S.hasMore = data.has_more || false;
+            S.offset  = (data.offset || 0) + prods.length;
+            S.loaded += prods.length;
+            if (S.loaded >= MAX_RESULTS) S.hasMore = false;
 
-        ajaxGet('wcss_search', params, { signal: signal })
-            .then(function (data) {
-                State.loading = false;
-                showLoader(false);
-                Requests.clear('search');
-
-                var products = data.products || [];
-                State.totalCount = data.total_count || 0;
-                State.hasMore = data.has_more || false;
-                State.offset = (data.offset || 0) + products.length;
-                State.totalLoaded += products.length;
-
-                // Enforce max results
-                if (State.totalLoaded >= MAX_RESULTS) {
-                    State.hasMore = false;
-                }
-
-                if (!append) {
-                    State.products = products;
-                    State.facets = data.facets || null;
-                    renderResults(data);
-
-                    // Track search event (first page only)
-                    Analytics.track('search', { query: q });
-                } else {
-                    State.products = State.products.concat(products);
-                    appendProducts(products, data.banners);
-                }
-            })
-            .catch(function (err) {
-                if (err.name === 'AbortError') return; // expected
-                State.loading = false;
-                showLoader(false);
-                console.error('[SmartSearch] Search error:', err);
-            });
+            if (!append) {
+                S.products = prods;
+                S.facets   = data.facets || null;
+                renderResults(data);
+                trackEvent('search', { query: q });
+            } else {
+                S.products = S.products.concat(prods);
+                appendProducts(prods, data.banners);
+            }
+        }).catch(function (e) {
+            if (e.name === 'AbortError') return;
+            S.loading = false;
+            showLoader(false);
+        });
     }
 
-    var debouncedSearch = debounce(function () {
-        executeSearch(false);
-    }, DEBOUNCE_DELAY);
+    var debouncedSearch = debounce(function () { executeSearch(false); }, DEBOUNCE_MS);
 
     /* ---------------------------------------------------------------
      * 11. RENDER RESULTS
      * ------------------------------------------------------------- */
-
     function clearResults() {
-        if (!overlayBuilt) return;
-        DOM.grid.innerHTML = '';
-        DOM.statusBar.innerHTML = '';
-        DOM.bannersTop.innerHTML = '';
-        DOM.bannersBottom.innerHTML = '';
-        DOM.noResults.style.display = 'none';
-        DOM.loader.style.display = 'none';
+        if (!overlayReady) return;
+        D.grid.innerHTML = ''; D.statusBar.innerHTML = '';
+        D.bannersTop.innerHTML = ''; D.bannersBtm.innerHTML = '';
+        D.noResults.style.display = 'none'; D.loader.style.display = 'none';
     }
 
     function renderResults(data) {
         clearResults();
-
-        var products = data.products || [];
+        var prods   = data.products || [];
         var banners = data.banners || {};
-        var didYouMean = data.did_you_mean || [];
+        var dym     = data.did_you_mean || [];
 
-        // Status bar: result count
-        renderStatusBar(data.total_count || 0, didYouMean);
+        renderStatusBar(data.total_count || 0, dym);
+        renderBannerBlock(D.bannersTop, banners.top);
+        renderBannerBlock(D.bannersBtm, banners.bottom);
 
-        // Top banners
-        renderBanners(DOM.bannersTop, banners.top);
-
-        // Bottom banners
-        renderBanners(DOM.bannersBottom, banners.bottom);
-
-        if (products.length === 0) {
-            DOM.noResults.style.display = 'block';
-            DOM.noResults.innerHTML = '<p>' + esc(I18N.no_results || 'No results found') + '</p>';
+        if (!prods.length) {
+            D.noResults.style.display = 'block';
+            D.noResults.innerHTML = '<p>' + esc(I18N.no_results || 'No results found') + '</p>';
             return;
         }
-
-        // Render products
-        products.forEach(function (product, i) {
-            DOM.grid.appendChild(createProductCard(product));
-
-            // Middle banner after 4th product
-            if (i === 3 && banners.middle && banners.middle.length) {
-                renderBannersInline(DOM.grid, banners.middle);
-            }
+        prods.forEach(function (p, i) {
+            D.grid.appendChild(productCard(p));
+            if (i === 3 && banners.middle && banners.middle.length) inlineBanners(D.grid, banners.middle);
         });
-
-        // Render filters sidebar
-        if (State.facets) {
-            renderFilters(State.facets);
-        }
+        if (S.facets) Filters.render(S.facets);
     }
 
-    function appendProducts(products, banners) {
-        var existingCount = DOM.grid.querySelectorAll('.wcss-product-card').length;
-
-        products.forEach(function (product, i) {
-            var globalIndex = existingCount + i;
-            DOM.grid.appendChild(createProductCard(product));
-
-            // Middle banners after every batch's 4th product position
-            if (i === 3 && banners && banners.middle && banners.middle.length) {
-                renderBannersInline(DOM.grid, banners.middle);
-            }
+    function appendProducts(prods, banners) {
+        prods.forEach(function (p, i) {
+            D.grid.appendChild(productCard(p));
+            if (i === 3 && banners && banners.middle && banners.middle.length) inlineBanners(D.grid, banners.middle);
         });
     }
 
-    function renderStatusBar(totalCount, didYouMean) {
-        DOM.statusBar.innerHTML = '';
+    function renderStatusBar(total, dym) {
+        D.statusBar.innerHTML = '';
+        var c = el('span', 'wcss-overlay__result-count');
+        c.textContent = (I18N.results_count || '%d results').replace('%d', total);
+        D.statusBar.appendChild(c);
 
-        // Result count
-        var countText = (I18N.results_count || '%d results').replace('%d', totalCount);
-        var countEl = el('span', 'wcss-overlay__result-count');
-        countEl.textContent = countText;
-        DOM.statusBar.appendChild(countEl);
-
-        // "Did you mean" suggestions (show when results < 3)
-        if (didYouMean && didYouMean.length > 0 && totalCount < 3) {
-            var dymWrap = el('div', 'wcss-did-you-mean');
-            dymWrap.innerHTML = '<span>' + esc(I18N.did_you_mean || 'Did you mean:') + ' </span>';
-            didYouMean.forEach(function (term, i) {
-                if (i > 0) {
-                    dymWrap.appendChild(document.createTextNode(', '));
-                }
-                var link = el('a', 'wcss-did-you-mean__link', { href: '#' });
-                link.textContent = term;
-                link.addEventListener('click', function (e) {
+        if (dym && dym.length && total < 3) {
+            var w = el('div', 'wcss-did-you-mean');
+            w.innerHTML = '<span>' + esc(I18N.did_you_mean || 'Did you mean:') + ' </span>';
+            dym.forEach(function (term, i) {
+                if (i > 0) w.appendChild(document.createTextNode(', '));
+                var a = el('a', 'wcss-did-you-mean__link', { href: '#' });
+                a.textContent = term;
+                a.addEventListener('click', function (e) {
                     e.preventDefault();
-                    DOM.input.value = term;
-                    State.query = term;
-                    Suggestions.hide();
-                    executeSearch(false);
+                    D.input.value = term; S.query = term;
+                    hideSuggestions(); executeSearch(false);
                 });
-                dymWrap.appendChild(link);
+                w.appendChild(a);
             });
-            DOM.statusBar.appendChild(dymWrap);
+            D.statusBar.appendChild(w);
         }
     }
+
+    function showLoader(v) { if (overlayReady) D.loader.style.display = v ? 'flex' : 'none'; }
 
     /* ---------------------------------------------------------------
      * 12. PRODUCT CARDS
      * ------------------------------------------------------------- */
-
-    function createProductCard(product) {
-        var card = el('div', 'wcss-product-card');
-        card.setAttribute('data-product-id', product.id);
+    function productCard(p) {
+        var card = el('div', 'wcss-product-card', { 'data-product-id': p.id });
+        var hasSale = p.sale_price && parseFloat(p.sale_price) < parseFloat(p.price);
 
         // Image
-        var imgWrap = el('a', 'wcss-product-card__image-wrap', { href: product.url || '#' });
-        imgWrap.addEventListener('click', function () {
-            Analytics.track('click', { query: State.query, product_id: product.id });
-        });
-        if (product.image) {
-            var img = el('img', 'wcss-product-card__image', {
-                src: product.image,
-                alt: product.name || '',
-                loading: 'lazy'
-            });
-            imgWrap.appendChild(img);
-        }
-
-        // Sale badge
-        if (product.sale_price && parseFloat(product.sale_price) < parseFloat(product.price)) {
-            var badge = el('span', 'wcss-product-card__sale-badge');
-            badge.textContent = 'Sale';
-            imgWrap.appendChild(badge);
-        }
+        var imgWrap = el('a', 'wcss-product-card__image-wrap', { href: p.url || '#' });
+        imgWrap.addEventListener('click', function () { trackEvent('click', { query: S.query, product_id: p.id }); });
+        if (p.image) imgWrap.appendChild(el('img', 'wcss-product-card__image', { src: p.image, alt: p.name || '', loading: 'lazy' }));
+        if (hasSale) { var badge = el('span', 'wcss-product-card__sale-badge'); badge.textContent = 'Sale'; imgWrap.appendChild(badge); }
         card.appendChild(imgWrap);
 
-        // Info section
+        // Info
         var info = el('div', 'wcss-product-card__info');
+        if (p.brand) { var b = el('span', 'wcss-product-card__brand'); b.textContent = p.brand; info.appendChild(b); }
 
-        // Brand
-        if (product.brand) {
-            var brand = el('span', 'wcss-product-card__brand');
-            brand.textContent = product.brand;
-            info.appendChild(brand);
+        var nm = el('a', 'wcss-product-card__name', { href: p.url || '#' });
+        nm.textContent = p.name || '';
+        nm.addEventListener('click', function () { trackEvent('click', { query: S.query, product_id: p.id }); });
+        info.appendChild(nm);
+
+        var pw = el('div', 'wcss-product-card__price');
+        if (hasSale) {
+            var orig = el('span', 'wcss-product-card__price-original'); orig.textContent = formatPrice(p.price);
+            var sale = el('span', 'wcss-product-card__price-sale');     sale.textContent = formatPrice(p.sale_price);
+            pw.append(orig, sale);
+        } else if (p.price) {
+            var reg = el('span', 'wcss-product-card__price-regular'); reg.textContent = formatPrice(p.price);
+            pw.appendChild(reg);
         }
+        info.appendChild(pw);
 
-        // Name
-        var name = el('a', 'wcss-product-card__name', { href: product.url || '#' });
-        name.textContent = product.name || '';
-        name.addEventListener('click', function () {
-            Analytics.track('click', { query: State.query, product_id: product.id });
-        });
-        info.appendChild(name);
-
-        // Price
-        var priceWrap = el('div', 'wcss-product-card__price');
-        if (product.sale_price && parseFloat(product.sale_price) < parseFloat(product.price)) {
-            var origPrice = el('span', 'wcss-product-card__price-original');
-            origPrice.textContent = formatPrice(product.price);
-            priceWrap.appendChild(origPrice);
-
-            var salePrice = el('span', 'wcss-product-card__price-sale');
-            salePrice.textContent = formatPrice(product.sale_price);
-            priceWrap.appendChild(salePrice);
-        } else if (product.price) {
-            var regularPrice = el('span', 'wcss-product-card__price-regular');
-            regularPrice.textContent = formatPrice(product.price);
-            priceWrap.appendChild(regularPrice);
-        }
-        info.appendChild(priceWrap);
-
-        // Add to cart button
-        var cartBtn = el('button', 'wcss-product-card__add-to-cart', { type: 'button' });
-        cartBtn.textContent = I18N.add_to_cart || 'Add to cart';
-        cartBtn.addEventListener('click', function () {
-            addToCart(product.id, cartBtn);
-        });
-        info.appendChild(cartBtn);
+        var btn = el('button', 'wcss-product-card__add-to-cart', { type: 'button' });
+        btn.textContent = I18N.add_to_cart || 'Add to cart';
+        btn.addEventListener('click', function () { addToCart(p.id, btn); });
+        info.appendChild(btn);
 
         card.appendChild(info);
-
         return card;
     }
 
     /* ---------------------------------------------------------------
      * 13. ADD TO CART
      * ------------------------------------------------------------- */
-
-    function addToCart(productId, btn) {
+    function addToCart(pid, btn) {
         if (btn.disabled) return;
         btn.disabled = true;
         btn.classList.add('wcss-product-card__add-to-cart--loading');
-        var originalText = btn.textContent;
+        var orig = btn.textContent;
 
-        var url = new URL(AJAX_URL, window.location.origin);
+        var url = new URL(AJAX_URL, location.origin);
         url.searchParams.set('action', 'woocommerce_add_to_cart');
-        url.searchParams.set('product_id', productId);
-        url.searchParams.set('quantity', 1);
 
         fetch(url.toString(), {
-            method: 'POST',
-            credentials: 'same-origin',
+            method: 'POST', credentials: 'same-origin',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'product_id=' + productId + '&quantity=1'
-        })
-        .then(function (resp) { return resp.json(); })
-        .then(function () {
+            body: 'product_id=' + pid + '&quantity=1'
+        }).then(function (r) { return r.json(); }).then(function () {
             btn.classList.remove('wcss-product-card__add-to-cart--loading');
             btn.classList.add('wcss-product-card__add-to-cart--added');
             btn.textContent = I18N.added || 'Added!';
-
-            Analytics.track('add_to_cart', { query: State.query, product_id: productId });
-
-            // Trigger WooCommerce cart fragment refresh
-            if (document.body) {
-                document.body.dispatchEvent(new Event('wc_fragment_refresh'));
-            }
-
-            setTimeout(function () {
-                btn.disabled = false;
-                btn.classList.remove('wcss-product-card__add-to-cart--added');
-                btn.textContent = originalText;
-            }, 2000);
-        })
-        .catch(function () {
-            btn.disabled = false;
-            btn.classList.remove('wcss-product-card__add-to-cart--loading');
-            btn.textContent = originalText;
-        });
+            trackEvent('add_to_cart', { query: S.query, product_id: pid });
+            document.body.dispatchEvent(new Event('wc_fragment_refresh'));
+            setTimeout(function () { btn.disabled = false; btn.classList.remove('wcss-product-card__add-to-cart--added'); btn.textContent = orig; }, 2000);
+        }).catch(function () { btn.disabled = false; btn.classList.remove('wcss-product-card__add-to-cart--loading'); btn.textContent = orig; });
     }
 
     /* ---------------------------------------------------------------
      * 14. BANNERS
      * ------------------------------------------------------------- */
-
-    function renderBanners(container, banners) {
+    function renderBannerBlock(container, banners) {
         container.innerHTML = '';
         if (!banners || !banners.length) return;
-
-        banners.forEach(function (banner) {
-            var bannerEl = el('div', 'wcss-banner');
-            if (banner.url) {
-                var link = el('a', 'wcss-banner__link', {
-                    href: banner.url,
-                    target: banner.new_tab ? '_blank' : '_self',
-                    rel: 'noopener'
-                });
-                if (banner.image) {
-                    var img = el('img', 'wcss-banner__image', {
-                        src: banner.image,
-                        alt: banner.title || '',
-                        loading: 'lazy'
-                    });
-                    link.appendChild(img);
-                } else if (banner.html) {
-                    link.innerHTML = banner.html;
-                }
-                bannerEl.appendChild(link);
-            } else if (banner.image) {
-                var img2 = el('img', 'wcss-banner__image', {
-                    src: banner.image,
-                    alt: banner.title || '',
-                    loading: 'lazy'
-                });
-                bannerEl.appendChild(img2);
-            } else if (banner.html) {
-                bannerEl.innerHTML = banner.html;
+        banners.forEach(function (b) {
+            var wrap = el('div', 'wcss-banner');
+            var content;
+            if (b.image) {
+                content = el('img', 'wcss-banner__image', { src: b.image, alt: b.title || '', loading: 'lazy' });
+            } else if (b.html) {
+                content = el('div'); content.innerHTML = b.html;
             }
-            container.appendChild(bannerEl);
+            if (b.url && content) {
+                var a = el('a', 'wcss-banner__link', { href: b.url, target: b.new_tab ? '_blank' : '_self', rel: 'noopener' });
+                a.appendChild(content); wrap.appendChild(a);
+            } else if (content) {
+                wrap.appendChild(content);
+            }
+            container.appendChild(wrap);
         });
     }
 
-    /** Render banners inline inside the product grid. */
-    function renderBannersInline(container, banners) {
-        if (!banners || !banners.length) return;
-
-        var wrapper = el('div', 'wcss-banners wcss-banners--middle');
-        renderBanners(wrapper, banners);
-        container.appendChild(wrapper);
+    function inlineBanners(container, banners) {
+        var w = el('div', 'wcss-banners wcss-banners--middle');
+        renderBannerBlock(w, banners);
+        container.appendChild(w);
     }
 
     /* ---------------------------------------------------------------
      * 15. DYNAMIC FILTERS
      * ------------------------------------------------------------- */
     var Filters = {
-        initialized: false,
         mobileOpen: false,
 
         render: function (facets) {
-            var inner = DOM.filtersPanel.querySelector('.wcss-filters__inner');
+            var inner = D.filtersPanel.querySelector('.wcss-filters__inner');
             if (!inner) return;
             inner.innerHTML = '';
 
-            this.initialized = true;
-
-            // Price range slider
-            if (facets.price_min !== undefined && facets.price_max !== undefined &&
-                facets.price_max > facets.price_min) {
-                inner.appendChild(this._buildPriceFilter(facets.price_min, facets.price_max));
+            // Price range
+            if (facets.price_min !== undefined && facets.price_max !== undefined && facets.price_max > facets.price_min) {
+                inner.appendChild(this._priceFilter(facets.price_min, facets.price_max));
             }
-
-            // Brand checkboxes
+            // Brands
             if (facets.brands && facets.brands.length) {
-                inner.appendChild(this._buildCheckboxFilter(
-                    I18N.brand || 'Brand',
-                    'manufacturer',
-                    facets.brands
-                ));
+                inner.appendChild(this._checkboxFilter(I18N.brand || 'Brand', 'manufacturer', facets.brands));
             }
-
-            // Category checkboxes
+            // Categories
             if (facets.categories && facets.categories.length) {
-                inner.appendChild(this._buildCheckboxFilter(
-                    I18N.categories || 'Categories',
-                    'category',
-                    facets.categories
-                ));
+                inner.appendChild(this._checkboxFilter(I18N.categories || 'Categories', 'category', facets.categories));
             }
-
-            // Apply / Reset buttons
+            // Buttons
             var actions = el('div', 'wcss-filters__actions');
-
-            var applyBtn = el('button', 'wcss-filters__apply-btn', { type: 'button' });
-            applyBtn.textContent = I18N.apply_filters || 'Apply filters';
-            applyBtn.addEventListener('click', function () {
-                Filters.apply();
-            });
-
-            var resetBtn = el('button', 'wcss-filters__reset-btn', { type: 'button' });
-            resetBtn.textContent = I18N.reset_filters || 'Reset';
-            resetBtn.addEventListener('click', function () {
-                Filters.reset();
-            });
-
-            actions.appendChild(applyBtn);
-            actions.appendChild(resetBtn);
+            var applyB = el('button', 'wcss-filters__apply-btn', { type: 'button' });
+            applyB.textContent = I18N.apply_filters || 'Apply filters';
+            applyB.addEventListener('click', function () { Filters.apply(); });
+            var resetB = el('button', 'wcss-filters__reset-btn', { type: 'button' });
+            resetB.textContent = I18N.reset_filters || 'Reset';
+            resetB.addEventListener('click', function () { Filters.reset(); });
+            actions.append(applyB, resetB);
             inner.appendChild(actions);
         },
 
-        _buildPriceFilter: function (min, max) {
-            var section = el('div', 'wcss-filters__section');
-            var heading = el('h4', 'wcss-filters__heading');
-            heading.textContent = I18N.price || 'Price';
-            section.appendChild(heading);
+        _priceFilter: function (min, max) {
+            var sec = el('div', 'wcss-filters__section');
+            var h = el('h4', 'wcss-filters__heading'); h.textContent = I18N.price || 'Price';
+            sec.appendChild(h);
 
-            var rangeWrap = el('div', 'wcss-filters__price-range');
+            var wrap = el('div', 'wcss-filters__price-range');
+            var floorMin = Math.floor(min), ceilMax = Math.ceil(max);
 
-            // Min input
-            var minLabel = el('label', 'wcss-filters__price-label');
-            minLabel.textContent = 'Min';
-            var minInput = el('input', 'wcss-filters__price-input', {
-                type: 'number',
-                min: Math.floor(min),
-                max: Math.ceil(max),
-                value: State.filters.price_min || Math.floor(min),
-                step: '1',
-                'data-filter': 'price_min'
-            });
-            minLabel.appendChild(minInput);
+            // Number inputs
+            var minLbl = el('label', 'wcss-filters__price-label'); minLbl.textContent = 'Min';
+            var minInp = el('input', 'wcss-filters__price-input', { type: 'number', min: floorMin, max: ceilMax, value: S.filters.price_min || floorMin, step: '1', 'data-filter': 'price_min' });
+            minLbl.appendChild(minInp);
 
-            // Max input
-            var maxLabel = el('label', 'wcss-filters__price-label');
-            maxLabel.textContent = 'Max';
-            var maxInput = el('input', 'wcss-filters__price-input', {
-                type: 'number',
-                min: Math.floor(min),
-                max: Math.ceil(max),
-                value: State.filters.price_max || Math.ceil(max),
-                step: '1',
-                'data-filter': 'price_max'
-            });
-            maxLabel.appendChild(maxInput);
+            var maxLbl = el('label', 'wcss-filters__price-label'); maxLbl.textContent = 'Max';
+            var maxInp = el('input', 'wcss-filters__price-input', { type: 'number', min: floorMin, max: ceilMax, value: S.filters.price_max || ceilMax, step: '1', 'data-filter': 'price_max' });
+            maxLbl.appendChild(maxInp);
 
-            // Range slider (dual thumb using two range inputs)
-            var sliderTrack = el('div', 'wcss-filters__slider-track');
-            var sliderMin = el('input', 'wcss-filters__slider', {
-                type: 'range',
-                min: Math.floor(min),
-                max: Math.ceil(max),
-                value: State.filters.price_min || Math.floor(min),
-                step: '1',
-                'data-filter': 'price_min'
-            });
-            var sliderMax = el('input', 'wcss-filters__slider', {
-                type: 'range',
-                min: Math.floor(min),
-                max: Math.ceil(max),
-                value: State.filters.price_max || Math.ceil(max),
-                step: '1',
-                'data-filter': 'price_max'
-            });
+            // Range sliders (dual thumb)
+            var track  = el('div', 'wcss-filters__slider-track');
+            var sMin   = el('input', 'wcss-filters__slider', { type: 'range', min: floorMin, max: ceilMax, value: S.filters.price_min || floorMin, step: '1' });
+            var sMax   = el('input', 'wcss-filters__slider', { type: 'range', min: floorMin, max: ceilMax, value: S.filters.price_max || ceilMax, step: '1' });
 
-            // Sync slider <-> number inputs
-            sliderMin.addEventListener('input', function () {
-                var val = parseInt(sliderMin.value, 10);
-                if (val > parseInt(sliderMax.value, 10)) {
-                    sliderMin.value = sliderMax.value;
-                    val = parseInt(sliderMax.value, 10);
-                }
-                minInput.value = val;
+            sMin.addEventListener('input', function () {
+                if (parseInt(sMin.value, 10) > parseInt(sMax.value, 10)) sMin.value = sMax.value;
+                minInp.value = sMin.value;
             });
-            sliderMax.addEventListener('input', function () {
-                var val = parseInt(sliderMax.value, 10);
-                if (val < parseInt(sliderMin.value, 10)) {
-                    sliderMax.value = sliderMin.value;
-                    val = parseInt(sliderMin.value, 10);
-                }
-                maxInput.value = val;
+            sMax.addEventListener('input', function () {
+                if (parseInt(sMax.value, 10) < parseInt(sMin.value, 10)) sMax.value = sMin.value;
+                maxInp.value = sMax.value;
             });
-            minInput.addEventListener('change', function () {
-                sliderMin.value = minInput.value;
-            });
-            maxInput.addEventListener('change', function () {
-                sliderMax.value = maxInput.value;
-            });
+            minInp.addEventListener('change', function () { sMin.value = minInp.value; });
+            maxInp.addEventListener('change', function () { sMax.value = maxInp.value; });
 
-            sliderTrack.appendChild(sliderMin);
-            sliderTrack.appendChild(sliderMax);
-
-            rangeWrap.appendChild(minLabel);
-            rangeWrap.appendChild(maxLabel);
-            rangeWrap.appendChild(sliderTrack);
-
-            section.appendChild(rangeWrap);
-            return section;
+            track.append(sMin, sMax);
+            wrap.append(minLbl, maxLbl, track);
+            sec.appendChild(wrap);
+            return sec;
         },
 
-        _buildCheckboxFilter: function (label, filterKey, items) {
-            var section = el('div', 'wcss-filters__section');
-            var heading = el('h4', 'wcss-filters__heading');
-            heading.textContent = label;
-            section.appendChild(heading);
+        _checkboxFilter: function (label, key, items) {
+            var sec = el('div', 'wcss-filters__section');
+            var h = el('h4', 'wcss-filters__heading'); h.textContent = label;
+            sec.appendChild(h);
 
             var list = el('div', 'wcss-filters__checkbox-list');
+            var active = S.filters[key] || [];
 
             items.forEach(function (item) {
-                var wrap = el('label', 'wcss-filters__checkbox-label');
-                var checkbox = el('input', 'wcss-filters__checkbox', {
-                    type: 'checkbox',
-                    value: item.id || item.term_id || item.value || '',
-                    'data-filter': filterKey
-                });
-
-                // Check if currently active
-                var currentValues = State.filters[filterKey] || [];
-                var checkValue = parseInt(checkbox.value, 10);
-                if (currentValues.indexOf(checkValue) !== -1) {
-                    checkbox.checked = true;
-                }
-
-                var text = document.createTextNode(' ' + (item.name || item.label || ''));
-                var count = '';
+                var lbl = el('label', 'wcss-filters__checkbox-label');
+                var cb  = el('input', 'wcss-filters__checkbox', { type: 'checkbox', value: item.id || item.term_id || item.value || '', 'data-filter': key });
+                if (active.indexOf(parseInt(cb.value, 10)) !== -1) cb.checked = true;
+                var txt = document.createTextNode(' ' + (item.name || item.label || ''));
+                lbl.append(cb, txt);
                 if (item.count !== undefined) {
-                    count = ' (' + item.count + ')';
+                    var cs = el('span', 'wcss-filters__count'); cs.textContent = ' (' + item.count + ')';
+                    lbl.appendChild(cs);
                 }
-
-                wrap.appendChild(checkbox);
-                wrap.appendChild(text);
-                if (count) {
-                    var countSpan = el('span', 'wcss-filters__count');
-                    countSpan.textContent = count;
-                    wrap.appendChild(countSpan);
-                }
-                list.appendChild(wrap);
+                list.appendChild(lbl);
             });
-
-            section.appendChild(list);
-            return section;
+            sec.appendChild(list);
+            return sec;
         },
 
-        /** Gather current filter values from the DOM and execute search. */
         apply: function () {
-            var inner = DOM.filtersPanel.querySelector('.wcss-filters__inner');
+            var inner = D.filtersPanel.querySelector('.wcss-filters__inner');
             if (!inner) return;
+            var pMinI = inner.querySelector('input[data-filter="price_min"][type="number"]');
+            var pMaxI = inner.querySelector('input[data-filter="price_max"][type="number"]');
+            S.filters.price_min = pMinI ? parseFloat(pMinI.value) || 0 : 0;
+            S.filters.price_max = pMaxI ? parseFloat(pMaxI.value) || 0 : 0;
 
-            // Price
-            var priceMinInput = inner.querySelector('input[data-filter="price_min"][type="number"]');
-            var priceMaxInput = inner.querySelector('input[data-filter="price_max"][type="number"]');
-            State.filters.price_min = priceMinInput ? parseFloat(priceMinInput.value) || 0 : 0;
-            State.filters.price_max = priceMaxInput ? parseFloat(priceMaxInput.value) || 0 : 0;
+            S.filters.manufacturer = [];
+            inner.querySelectorAll('input[data-filter="manufacturer"]:checked').forEach(function (c) { S.filters.manufacturer.push(parseInt(c.value, 10)); });
+            S.filters.category = [];
+            inner.querySelectorAll('input[data-filter="category"]:checked').forEach(function (c) { S.filters.category.push(parseInt(c.value, 10)); });
 
-            // Checkboxes for manufacturer
-            State.filters.manufacturer = [];
-            inner.querySelectorAll('input[data-filter="manufacturer"]:checked').forEach(function (cb) {
-                State.filters.manufacturer.push(parseInt(cb.value, 10));
-            });
-
-            // Checkboxes for category
-            State.filters.category = [];
-            inner.querySelectorAll('input[data-filter="category"]:checked').forEach(function (cb) {
-                State.filters.category.push(parseInt(cb.value, 10));
-            });
-
-            // Close mobile filter panel
-            if (this.mobileOpen) {
-                this.toggleMobile();
-            }
-
+            if (this.mobileOpen) this.toggleMobile();
             executeSearch(false);
         },
 
         reset: function () {
             resetFilters();
-
-            // Uncheck all checkboxes and reset price inputs
-            var inner = DOM.filtersPanel.querySelector('.wcss-filters__inner');
-            if (inner) {
-                inner.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
-                    cb.checked = false;
-                });
-                // Reset will re-render via search, so the sliders will update
-            }
-
-            if (this.mobileOpen) {
-                this.toggleMobile();
-            }
-
+            var inner = D.filtersPanel.querySelector('.wcss-filters__inner');
+            if (inner) inner.querySelectorAll('input[type="checkbox"]').forEach(function (c) { c.checked = false; });
+            if (this.mobileOpen) this.toggleMobile();
             executeSearch(false);
         },
 
         toggleMobile: function () {
             this.mobileOpen = !this.mobileOpen;
-            DOM.filtersPanel.classList.toggle('wcss-filters--mobile-open', this.mobileOpen);
-            DOM.mobileFilterBtn.textContent = this.mobileOpen
-                ? (I18N.hide_filters || 'Hide filters')
-                : (I18N.show_filters || 'Show filters');
+            D.filtersPanel.classList.toggle('wcss-filters--mobile-open', this.mobileOpen);
+            D.mobileFilterBtn.textContent = this.mobileOpen ? (I18N.hide_filters || 'Hide filters') : (I18N.show_filters || 'Show filters');
         }
     };
-
-    function renderFilters(facets) {
-        Filters.render(facets);
-    }
 
     /* ---------------------------------------------------------------
      * 16. AUTOCOMPLETE SUGGESTIONS
      * ------------------------------------------------------------- */
-    var Suggestions = {
-        items: [],
-        activeIndex: -1,
+    var _sugItems = [];
+    var _sugIdx   = -1;
 
-        fetch: function (query) {
-            if (query.length < 1) {
-                this.hide();
-                return;
-            }
+    function fetchSuggestions(q) {
+        if (q.length < 1) { hideSuggestions(); return; }
+        var sig = abortStart('suggestions');
+        ajaxGet('wcss_suggestions', { q: q }, { signal: sig, useCache: true }).then(function (data) {
+            abortClear('suggestions');
+            var list = data.suggestions || [];
+            list.length ? showSuggestions(list) : hideSuggestions();
+        }).catch(function (e) { if (e.name !== 'AbortError') hideSuggestions(); });
+    }
 
-            var signal = Requests.start('suggestions');
+    function showSuggestions(items) {
+        _sugItems = items; _sugIdx = -1;
+        D.suggestions.innerHTML = '';
+        D.suggestions.style.display = 'block';
 
-            ajaxGet('wcss_suggestions', { q: query }, { signal: signal, useCache: true })
-                .then(function (data) {
-                    Requests.clear('suggestions');
-                    var list = data.suggestions || [];
-                    if (list.length > 0) {
-                        Suggestions.show(list);
-                    } else {
-                        Suggestions.hide();
-                    }
-                })
-                .catch(function (err) {
-                    if (err.name === 'AbortError') return;
-                    Suggestions.hide();
-                });
-        },
+        var typeIcons = {
+            product: svgIcon('<path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>', 16),
+            brand:   svgIcon('<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V5a4 4 0 00-8 0v2"/>', 16)
+        };
+        var defaultIcon = svgIcon('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>', 16);
 
-        show: function (items) {
-            this.items = items;
-            this.activeIndex = -1;
+        items.forEach(function (item, i) {
+            var row = el('div', 'wcss-suggestions__item', { role: 'option', 'data-index': i });
+            var icon = el('span', 'wcss-suggestions__icon');
+            icon.innerHTML = typeIcons[item.type] || defaultIcon;
+            var text = el('span', 'wcss-suggestions__text');
+            text.textContent = item.text || item.name || '';
+            row.append(icon, text);
+            if (item.type) { var tb = el('span', 'wcss-suggestions__type'); tb.textContent = item.type; row.appendChild(tb); }
+            row.addEventListener('mousedown', function (e) { e.preventDefault(); selectSuggestion(i); });
+            row.addEventListener('mouseenter', function () { highlightSuggestion(i); });
+            D.suggestions.appendChild(row);
+        });
+    }
 
-            DOM.suggestionsWrap.innerHTML = '';
-            DOM.suggestionsWrap.style.display = 'block';
+    function hideSuggestions() {
+        if (!overlayReady) return;
+        D.suggestions.style.display = 'none';
+        D.suggestions.innerHTML = '';
+        _sugItems = []; _sugIdx = -1;
+    }
 
-            items.forEach(function (item, i) {
-                var row = el('div', 'wcss-suggestions__item', {
-                    role: 'option',
-                    'data-index': i
-                });
+    function highlightSuggestion(idx) {
+        var rows = D.suggestions.querySelectorAll('.wcss-suggestions__item');
+        rows.forEach(function (r) { r.classList.remove('wcss-suggestions__item--active'); });
+        if (idx >= 0 && idx < rows.length) { rows[idx].classList.add('wcss-suggestions__item--active'); _sugIdx = idx; }
+    }
 
-                // Icon based on type
-                var icon = el('span', 'wcss-suggestions__icon');
-                if (item.type === 'product') {
-                    icon.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>';
-                } else if (item.type === 'brand') {
-                    icon.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 7V5a4 4 0 00-8 0v2"/></svg>';
-                } else {
-                    icon.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
-                }
+    function navigateSuggestions(dir) {
+        if (!_sugItems.length) return;
+        var next = _sugIdx + dir;
+        if (next < 0) next = _sugItems.length - 1;
+        if (next >= _sugItems.length) next = 0;
+        highlightSuggestion(next);
+        var rows = D.suggestions.querySelectorAll('.wcss-suggestions__item');
+        if (rows[next]) rows[next].scrollIntoView({ block: 'nearest' });
+    }
 
-                var text = el('span', 'wcss-suggestions__text');
-                text.textContent = item.text || item.name || '';
-
-                if (item.type) {
-                    var typeBadge = el('span', 'wcss-suggestions__type');
-                    typeBadge.textContent = item.type;
-                    row.appendChild(icon);
-                    row.appendChild(text);
-                    row.appendChild(typeBadge);
-                } else {
-                    row.appendChild(icon);
-                    row.appendChild(text);
-                }
-
-                row.addEventListener('mousedown', function (e) {
-                    e.preventDefault(); // prevent input blur
-                    Suggestions.select(i);
-                });
-
-                row.addEventListener('mouseenter', function () {
-                    Suggestions.highlight(i);
-                });
-
-                DOM.suggestionsWrap.appendChild(row);
-            });
-        },
-
-        hide: function () {
-            if (!overlayBuilt) return;
-            DOM.suggestionsWrap.style.display = 'none';
-            DOM.suggestionsWrap.innerHTML = '';
-            this.items = [];
-            this.activeIndex = -1;
-        },
-
-        highlight: function (index) {
-            var rows = DOM.suggestionsWrap.querySelectorAll('.wcss-suggestions__item');
-            rows.forEach(function (r) { r.classList.remove('wcss-suggestions__item--active'); });
-            if (index >= 0 && index < rows.length) {
-                rows[index].classList.add('wcss-suggestions__item--active');
-                this.activeIndex = index;
-            }
-        },
-
-        navigate: function (direction) {
-            if (!this.items.length) return;
-            var next = this.activeIndex + direction;
-            if (next < 0) next = this.items.length - 1;
-            if (next >= this.items.length) next = 0;
-            this.highlight(next);
-
-            // Ensure the highlighted item is visible
-            var rows = DOM.suggestionsWrap.querySelectorAll('.wcss-suggestions__item');
-            if (rows[next]) {
-                rows[next].scrollIntoView({ block: 'nearest' });
-            }
-        },
-
-        select: function (index) {
-            var item = this.items[index];
-            if (!item) return;
-
-            var text = item.text || item.name || '';
-            DOM.input.value = text;
-            State.query = text;
-            this.hide();
-            executeSearch(false);
-        }
-    };
+    function selectSuggestion(idx) {
+        var item = _sugItems[idx];
+        if (!item) return;
+        var text = item.text || item.name || '';
+        D.input.value = text; S.query = text;
+        hideSuggestions(); executeSearch(false);
+    }
 
     /* ---------------------------------------------------------------
      * 17. INFINITE SCROLL
      * ------------------------------------------------------------- */
-
     function setupInfiniteScroll() {
-        if (!DOM.mainArea) return;
-
-        DOM.mainArea.addEventListener('scroll', function () {
-            if (!State.hasMore || State.loading) return;
-            if (State.totalLoaded >= MAX_RESULTS) return;
-
-            var scrollTop = DOM.mainArea.scrollTop;
-            var scrollHeight = DOM.mainArea.scrollHeight;
-            var clientHeight = DOM.mainArea.clientHeight;
-
-            // Trigger load when within 200px of the bottom
-            if (scrollTop + clientHeight >= scrollHeight - 200) {
+        D.main.addEventListener('scroll', function () {
+            if (!S.hasMore || S.loading || S.loaded >= MAX_RESULTS) return;
+            if (D.main.scrollTop + D.main.clientHeight >= D.main.scrollHeight - 200) {
                 executeSearch(true);
             }
         });
     }
 
     /* ---------------------------------------------------------------
-     * 18. LOADER
+     * 18. OVERLAY EVENT BINDINGS
      * ------------------------------------------------------------- */
-
-    function showLoader(visible) {
-        if (!overlayBuilt) return;
-        DOM.loader.style.display = visible ? 'flex' : 'none';
-    }
-
-    /* ---------------------------------------------------------------
-     * 19. EVENT BINDINGS (OVERLAY)
-     * ------------------------------------------------------------- */
-
     function bindOverlayEvents() {
-        // Close button
-        DOM.closeBtn.addEventListener('click', closeOverlay);
+        D.closeBtn.addEventListener('click', closeOverlay);
 
-        // Close on Escape
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape' && overlayOpen) {
-                if (DOM.suggestionsWrap.style.display !== 'none') {
-                    Suggestions.hide();
-                } else {
-                    closeOverlay();
-                }
+                D.suggestions.style.display !== 'none' ? hideSuggestions() : closeOverlay();
             }
         });
 
-        // Close on overlay background click
-        DOM.overlay.addEventListener('click', function (e) {
-            if (e.target === DOM.overlay) {
-                closeOverlay();
-            }
+        D.overlay.addEventListener('click', function (e) { if (e.target === D.overlay) closeOverlay(); });
+
+        // Input
+        D.input.addEventListener('input', function () {
+            var v = D.input.value; S.query = v;
+            D.clearBtn.style.display = v.length ? 'flex' : 'none';
+            v.length >= 1 ? fetchSuggestions(v) : hideSuggestions();
+            if (v.length >= MIN_CHARS) { debouncedSearch(); } else { debouncedSearch.cancel(); clearResults(); }
         });
 
-        // Input events
-        DOM.input.addEventListener('input', function () {
-            var val = DOM.input.value;
-            State.query = val;
-
-            DOM.clearBtn.style.display = val.length > 0 ? 'flex' : 'none';
-
-            if (val.length >= 1) {
-                Suggestions.fetch(val);
-            } else {
-                Suggestions.hide();
-            }
-
-            if (val.length >= MIN_CHARS) {
-                debouncedSearch();
-            } else {
-                debouncedSearch.cancel();
-                clearResults();
-            }
+        D.clearBtn.addEventListener('click', function () {
+            D.input.value = ''; S.query = '';
+            D.clearBtn.style.display = 'none';
+            hideSuggestions(); clearResults(); resetFilters(); D.input.focus();
         });
 
-        // Clear button
-        DOM.clearBtn.addEventListener('click', function () {
-            DOM.input.value = '';
-            State.query = '';
-            DOM.clearBtn.style.display = 'none';
-            Suggestions.hide();
-            clearResults();
-            resetFilters();
-            DOM.input.focus();
+        // Keyboard nav for suggestions
+        D.input.addEventListener('keydown', function (e) {
+            if (D.suggestions.style.display === 'none') return;
+            if (e.key === 'ArrowDown')  { e.preventDefault(); navigateSuggestions(1); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); navigateSuggestions(-1); }
+            else if (e.key === 'Enter' && _sugIdx >= 0) { e.preventDefault(); selectSuggestion(_sugIdx); }
         });
 
-        // Keyboard navigation for suggestions
-        DOM.input.addEventListener('keydown', function (e) {
-            if (DOM.suggestionsWrap.style.display === 'none') return;
+        D.input.addEventListener('blur', function () { setTimeout(hideSuggestions, 200); });
 
-            if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                Suggestions.navigate(1);
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                Suggestions.navigate(-1);
-            } else if (e.key === 'Enter') {
-                if (Suggestions.activeIndex >= 0) {
-                    e.preventDefault();
-                    Suggestions.select(Suggestions.activeIndex);
-                }
-            }
-        });
+        D.mobileFilterBtn.addEventListener('click', function () { Filters.toggleMobile(); });
 
-        // Hide suggestions on input blur (with delay so clicks register)
-        DOM.input.addEventListener('blur', function () {
-            setTimeout(function () {
-                Suggestions.hide();
-            }, 200);
-        });
-
-        // Mobile filter toggle
-        DOM.mobileFilterBtn.addEventListener('click', function () {
-            Filters.toggleMobile();
-        });
-
-        // Infinite scroll
         setupInfiniteScroll();
     }
 
     /* ---------------------------------------------------------------
-     * 20. SEARCH TRIGGER BINDING
+     * 19. SEARCH TRIGGER BINDINGS
      * ------------------------------------------------------------- */
-
-    function bindSearchTriggers() {
-        // Bind to any element with class .wcss-search-trigger or
-        // the WooCommerce default .widget_product_search, or data attribute
-        var selectors = [
-            '.wcss-search-trigger',
-            '[data-wcss-trigger]',
-            '.widget_product_search .search-field',
-            '.widget_product_search .search-submit'
-        ];
+    function bindTriggers() {
+        var sels = '.wcss-search-trigger, [data-wcss-trigger], .widget_product_search .search-field, .widget_product_search .search-submit';
 
         document.addEventListener('click', function (e) {
-            var target = e.target.closest(selectors.join(','));
-            if (target) {
-                e.preventDefault();
-                e.stopPropagation();
-                openOverlay();
-            }
+            var t = e.target.closest(sels);
+            if (t) { e.preventDefault(); e.stopPropagation(); openOverlay(); }
         });
 
-        // Also intercept focus on WooCommerce search fields
         document.addEventListener('focusin', function (e) {
             if (e.target.matches && e.target.matches('.widget_product_search .search-field, .wc-block-product-search__field')) {
-                e.preventDefault();
-                e.target.blur();
-                openOverlay();
+                e.preventDefault(); e.target.blur(); openOverlay();
             }
         });
 
-        // Keyboard shortcut: Ctrl+K or Cmd+K to open search
+        // Ctrl+K / Cmd+K shortcut
         document.addEventListener('keydown', function (e) {
             if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
                 e.preventDefault();
-                if (overlayOpen) {
-                    closeOverlay();
-                } else {
-                    openOverlay();
-                }
+                overlayOpen ? closeOverlay() : openOverlay();
             }
         });
     }
 
     /* ---------------------------------------------------------------
-     * 21. PRODUCT RECOMMENDATIONS
+     * 20. PRODUCT RECOMMENDATIONS
      * ------------------------------------------------------------- */
-    var Recommendations = {
+    var Recs = {
         init: function () {
             if (!P.recommendations) return;
 
-            // Single product page
-            var productRec = document.getElementById('wcss-product-recommendations');
-            if (productRec) {
-                var productId = productRec.getAttribute('data-product-id') || P.product_id;
-                if (productId) {
-                    this.fetchAndRender(
-                        { product_id: productId },
-                        productRec,
-                        I18N.also_bought || 'Customers also bought',
-                        false
-                    );
-                }
+            var prodEl = document.getElementById('wcss-product-recommendations');
+            if (prodEl) {
+                var pid = prodEl.getAttribute('data-product-id') || P.product_id;
+                if (pid) this._load({ product_id: pid }, prodEl, I18N.also_bought || 'Customers also bought', false);
             }
 
-            // Cart page
-            var cartRec = document.getElementById('wcss-cart-recommendations');
-            if (cartRec) {
-                var productIds = cartRec.getAttribute('data-product-ids') || '';
-                if (!productIds && P.cart_product_ids && P.cart_product_ids.length) {
-                    productIds = P.cart_product_ids.join(',');
-                }
-                if (productIds) {
-                    this.fetchAndRender(
-                        { product_ids: productIds },
-                        cartRec,
-                        I18N.complete_order || 'Complete your order',
-                        true
-                    );
-                }
+            var cartEl = document.getElementById('wcss-cart-recommendations');
+            if (cartEl) {
+                var ids = cartEl.getAttribute('data-product-ids') || '';
+                if (!ids && P.cart_product_ids && P.cart_product_ids.length) ids = P.cart_product_ids.join(',');
+                if (ids) this._load({ product_ids: ids }, cartEl, I18N.complete_order || 'Complete your order', true);
             }
         },
 
-        fetchAndRender: function (params, container, title, showAddToCart) {
-            ajaxGet('wcss_recommendations', params, { useCache: true })
-                .then(function (data) {
-                    var products = data.products || [];
-                    if (!products.length) return;
+        _load: function (params, container, title, withCart) {
+            ajaxGet('wcss_recommendations', params, { useCache: true }).then(function (data) {
+                var prods = data.products || [];
+                if (!prods.length) return;
 
-                    container.innerHTML = '';
-                    container.classList.add('wcss-recommendations');
+                container.innerHTML = '';
+                container.classList.add('wcss-recommendations');
 
-                    var heading = el('h3', 'wcss-recommendations__title');
-                    heading.textContent = title;
-                    container.appendChild(heading);
+                var h = el('h3', 'wcss-recommendations__title'); h.textContent = title;
+                container.appendChild(h);
 
-                    var slider = el('div', 'wcss-recommendations__slider');
-                    var track = el('div', 'wcss-recommendations__track');
+                var slider = el('div', 'wcss-recommendations__slider');
+                var track  = el('div', 'wcss-recommendations__track');
+                prods.forEach(function (p) { track.appendChild(Recs._card(p, withCart)); });
+                slider.appendChild(track);
 
-                    products.forEach(function (product) {
-                        var card = Recommendations.buildCard(product, showAddToCart);
-                        track.appendChild(card);
-                    });
+                // Nav arrows
+                var prev = el('button', 'wcss-recommendations__nav wcss-recommendations__nav--prev', { type: 'button', 'aria-label': 'Previous' });
+                prev.innerHTML = ICON_PREV;
+                var next = el('button', 'wcss-recommendations__nav wcss-recommendations__nav--next', { type: 'button', 'aria-label': 'Next' });
+                next.innerHTML = ICON_NEXT;
 
-                    slider.appendChild(track);
+                var scrollAmt = function () { return track.clientWidth * 0.7; };
+                prev.addEventListener('click', function () { track.scrollBy({ left: -scrollAmt(), behavior: 'smooth' }); });
+                next.addEventListener('click', function () { track.scrollBy({ left: scrollAmt(), behavior: 'smooth' }); });
 
-                    // Navigation arrows
-                    var prevBtn = el('button', 'wcss-recommendations__nav wcss-recommendations__nav--prev', {
-                        type: 'button',
-                        'aria-label': 'Previous'
-                    });
-                    prevBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>';
-
-                    var nextBtn = el('button', 'wcss-recommendations__nav wcss-recommendations__nav--next', {
-                        type: 'button',
-                        'aria-label': 'Next'
-                    });
-                    nextBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>';
-
-                    prevBtn.addEventListener('click', function () {
-                        var scrollAmount = track.clientWidth * 0.7;
-                        track.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
-                    });
-
-                    nextBtn.addEventListener('click', function () {
-                        var scrollAmount = track.clientWidth * 0.7;
-                        track.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-                    });
-
-                    slider.appendChild(prevBtn);
-                    slider.appendChild(nextBtn);
-                    container.appendChild(slider);
-                })
-                .catch(function (err) {
-                    console.error('[SmartSearch] Recommendations error:', err);
-                });
+                slider.append(prev, next);
+                container.appendChild(slider);
+            }).catch(function () { /* silent */ });
         },
 
-        buildCard: function (product, showAddToCart) {
+        _card: function (p, withCart) {
             var card = el('div', 'wcss-recommendations__card');
+            var hasSale = p.sale_price && parseFloat(p.sale_price) < parseFloat(p.price);
 
-            var imgLink = el('a', 'wcss-recommendations__image-wrap', {
-                href: product.url || '#'
-            });
-            if (product.image) {
-                var img = el('img', 'wcss-recommendations__image', {
-                    src: product.image,
-                    alt: product.name || '',
-                    loading: 'lazy'
-                });
-                imgLink.appendChild(img);
-            }
+            var imgLink = el('a', 'wcss-recommendations__image-wrap', { href: p.url || '#' });
+            if (p.image) imgLink.appendChild(el('img', 'wcss-recommendations__image', { src: p.image, alt: p.name || '', loading: 'lazy' }));
             card.appendChild(imgLink);
 
             var info = el('div', 'wcss-recommendations__info');
+            var nm = el('a', 'wcss-recommendations__name', { href: p.url || '#' });
+            nm.textContent = p.name || '';
+            info.appendChild(nm);
 
-            var name = el('a', 'wcss-recommendations__name', { href: product.url || '#' });
-            name.textContent = product.name || '';
-            info.appendChild(name);
-
-            var price = el('div', 'wcss-recommendations__price');
-            if (product.sale_price && parseFloat(product.sale_price) < parseFloat(product.price)) {
-                price.innerHTML = '<span class="wcss-recommendations__price-original">' + esc(formatPrice(product.price)) + '</span>' +
-                    '<span class="wcss-recommendations__price-sale">' + esc(formatPrice(product.sale_price)) + '</span>';
-            } else if (product.price) {
-                price.textContent = formatPrice(product.price);
+            var pw = el('div', 'wcss-recommendations__price');
+            if (hasSale) {
+                pw.innerHTML = '<span class="wcss-recommendations__price-original">' + esc(formatPrice(p.price)) + '</span>'
+                    + '<span class="wcss-recommendations__price-sale">' + esc(formatPrice(p.sale_price)) + '</span>';
+            } else if (p.price) {
+                pw.textContent = formatPrice(p.price);
             }
-            info.appendChild(price);
+            info.appendChild(pw);
 
-            if (showAddToCart) {
-                var cartBtn = el('button', 'wcss-recommendations__add-to-cart', { type: 'button' });
-                cartBtn.textContent = I18N.add_to_cart || 'Add to cart';
-                cartBtn.addEventListener('click', function () {
-                    addToCart(product.id, cartBtn);
-                });
-                info.appendChild(cartBtn);
+            if (withCart) {
+                var btn = el('button', 'wcss-recommendations__add-to-cart', { type: 'button' });
+                btn.textContent = I18N.add_to_cart || 'Add to cart';
+                btn.addEventListener('click', function () { addToCart(p.id, btn); });
+                info.appendChild(btn);
             }
 
             card.appendChild(info);
@@ -1445,54 +849,35 @@
     };
 
     /* ---------------------------------------------------------------
-     * 22. DARK MODE SUPPORT
+     * 21. DARK MODE
      * ------------------------------------------------------------- */
+    function applyThemeAttr() {
+        if (!window.matchMedia) return;
+        var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var theme = dark ? 'dark' : 'light';
+        if (overlayReady) D.overlay.setAttribute('data-theme', theme);
+        document.querySelectorAll('.wcss-recommendations').forEach(function (e) { e.setAttribute('data-theme', theme); });
+    }
 
     function initDarkMode() {
-        // Read system preference and set data attribute on overlay for CSS hooks
-        if (window.matchMedia) {
-            var mq = window.matchMedia('(prefers-color-scheme: dark)');
-
-            function applyTheme(dark) {
-                if (overlayBuilt) {
-                    DOM.overlay.setAttribute('data-theme', dark ? 'dark' : 'light');
-                }
-                // Also set on recommendations containers
-                document.querySelectorAll('.wcss-recommendations').forEach(function (el) {
-                    el.setAttribute('data-theme', dark ? 'dark' : 'light');
-                });
-            }
-
-            applyTheme(mq.matches);
-
-            // Watch for changes
-            if (mq.addEventListener) {
-                mq.addEventListener('change', function (e) {
-                    applyTheme(e.matches);
-                });
-            }
+        if (!window.matchMedia) return;
+        var mq = window.matchMedia('(prefers-color-scheme: dark)');
+        applyThemeAttr();
+        if (mq.addEventListener) {
+            mq.addEventListener('change', applyThemeAttr);
         }
     }
 
     /* ---------------------------------------------------------------
-     * 23. INITIALIZATION
+     * 22. INIT
      * ------------------------------------------------------------- */
-
     function init() {
-        // Session tracking
-        Session.init();
-
-        // Bind search triggers (always, even before overlay is built)
-        bindSearchTriggers();
-
-        // Product recommendations (if applicable containers exist)
-        Recommendations.init();
-
-        // Dark mode
+        initSession();
+        bindTriggers();
+        Recs.init();
         initDarkMode();
     }
 
-    // Run on DOMContentLoaded or immediately if already loaded
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
@@ -1500,22 +885,16 @@
     }
 
     /* ---------------------------------------------------------------
-     * 24. PUBLIC API (for external integrations)
+     * 23. PUBLIC API
      * ------------------------------------------------------------- */
     window.WCSmartSearch = {
         open: openOverlay,
         close: closeOverlay,
         search: function (query) {
             openOverlay();
-            if (DOM.input) {
-                DOM.input.value = query;
-                State.query = query;
-                executeSearch(false);
-            }
+            if (D.input) { D.input.value = query; S.query = query; executeSearch(false); }
         },
-        clearCache: function () {
-            Cache.clear();
-        }
+        clearCache: cacheClear
     };
 
 })();

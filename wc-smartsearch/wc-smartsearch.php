@@ -90,6 +90,9 @@ function wcss_init() {
     add_action('woocommerce_after_single_product_summary', 'wcss_render_product_recommendations', 25);
     add_action('woocommerce_after_cart_table', 'wcss_render_cart_recommendations');
 
+    // Shortcode for search trigger (use in Bricks or any builder)
+    add_shortcode('wcss_trigger', 'wcss_shortcode_trigger');
+
     // AJAX hooks
     $ajax = new WCSS_Ajax();
     add_action('wp_ajax_wcss_search', [$ajax, 'handle_search']);
@@ -178,13 +181,79 @@ function wcss_enqueue_assets() {
 }
 
 /**
- * Render search bar in footer (overlay mode).
+ * Shortcode [wcss_trigger] - renders the search trigger button.
+ * Use this in Bricks theme header/navbar or any page builder.
+ *
+ * Attributes:
+ *   text  - Button text (default: "Cerca prodotti...")
+ *   class - Extra CSS classes
+ *   icon  - "yes" or "no" to show/hide icon (default: "yes")
+ *
+ * Example: [wcss_trigger text="Cerca" class="my-custom-class"]
+ */
+function wcss_shortcode_trigger($atts) {
+    $options = wcss_get_options();
+    if (empty($options['enabled'])) {
+        return '';
+    }
+
+    $atts = shortcode_atts([
+        'text'  => __('Cerca prodotti...', 'wc-smartsearch'),
+        'class' => '',
+        'icon'  => 'yes',
+    ], $atts, 'wcss_trigger');
+
+    // Flag that shortcode was used, so footer won't render duplicate trigger
+    global $wcss_trigger_rendered;
+    $wcss_trigger_rendered = true;
+
+    $classes = 'wcss-search-trigger';
+    if (!empty($atts['class'])) {
+        $classes .= ' ' . sanitize_html_class($atts['class']);
+    }
+
+    $icon = '';
+    if ($atts['icon'] !== 'no') {
+        $icon = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>';
+    }
+
+    $text_html = '';
+    if (!empty($atts['text'])) {
+        $text_html = '<span class="wcss-search-trigger-text">' . esc_html($atts['text']) . '</span>';
+    }
+
+    return '<div class="' . esc_attr($classes) . '" role="button" tabindex="0" aria-label="' . esc_attr__('Cerca prodotti', 'wc-smartsearch') . '">'
+        . $icon . $text_html
+        . '</div>';
+}
+
+/**
+ * Render search overlay in footer.
+ * If the [wcss_trigger] shortcode was used, skip the trigger button
+ * (only render the overlay and mobile filters panels).
  */
 function wcss_render_searchbar() {
     $options = wcss_get_options();
     if (empty($options['enabled'])) {
         return;
     }
+
+    global $wcss_trigger_rendered;
+
+    // Render trigger only if shortcode was NOT used
+    if (empty($wcss_trigger_rendered)) {
+        ?>
+        <div class="wcss-search-trigger" id="wcss-search-trigger" role="button" tabindex="0" aria-label="<?php esc_attr_e('Cerca prodotti', 'wc-smartsearch'); ?>">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <span class="wcss-search-trigger-text"><?php esc_html_e('Cerca prodotti...', 'wc-smartsearch'); ?></span>
+        </div>
+        <?php
+    }
+
+    // Always render overlay (skip the trigger part of the template)
     include WCSS_PLUGIN_DIR . 'templates/searchbar.php';
 }
 

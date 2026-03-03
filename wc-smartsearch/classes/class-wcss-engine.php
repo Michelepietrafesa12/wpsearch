@@ -738,47 +738,7 @@ class WCSS_Engine {
         $query = $this->normalize_query($query);
         $suggestions = [];
 
-        // Popular searches starting with query
-        $like_start = $wpdb->esc_like($query) . '%';
-        $popular_start = $wpdb->get_results($wpdb->prepare(
-            "SELECT query, COUNT(*) as cnt, 0 as results
-             FROM {$wpdb->prefix}wcss_search_log
-             WHERE query LIKE %s
-             GROUP BY query
-             ORDER BY cnt DESC
-             LIMIT 5",
-            $like_start
-        ), ARRAY_A);
-
-        foreach ($popular_start as $row) {
-            $suggestions[] = [
-                'query'   => $row['query'],
-                'count'   => intval($row['cnt']),
-                'results' => intval($row['results']),
-                'type'    => 'popular',
-            ];
-        }
-
-        // Popular searches containing query
         $like_contain = '%' . $wpdb->esc_like($query) . '%';
-        $popular_contain = $wpdb->get_results($wpdb->prepare(
-            "SELECT query, COUNT(*) as cnt, 0 as results
-             FROM {$wpdb->prefix}wcss_search_log
-             WHERE query LIKE %s AND query NOT LIKE %s
-             GROUP BY query
-             ORDER BY cnt DESC
-             LIMIT 3",
-            $like_contain, $like_start
-        ), ARRAY_A);
-
-        foreach ($popular_contain as $row) {
-            $suggestions[] = [
-                'query'   => $row['query'],
-                'count'   => intval($row['cnt']),
-                'results' => intval($row['results']),
-                'type'    => 'popular',
-            ];
-        }
 
         // Product names matching
         $product_names = $wpdb->get_col($wpdb->prepare(
@@ -829,25 +789,6 @@ class WCSS_Engine {
         global $wpdb;
 
         $suggestions = [];
-
-        // Get recent popular queries
-        $popular = $wpdb->get_col(
-            "SELECT DISTINCT query FROM {$wpdb->prefix}wcss_search_log
-             WHERE results_count > 0
-             GROUP BY query
-             HAVING COUNT(*) >= 2
-             ORDER BY COUNT(*) DESC
-             LIMIT 100"
-        );
-
-        // Find similar queries using Levenshtein distance
-        foreach ($popular as $pop_query) {
-            $distance = levenshtein(mb_strtolower($query), mb_strtolower($pop_query));
-            $max_len = max(mb_strlen($query), mb_strlen($pop_query));
-            if ($max_len > 0 && $distance <= ceil($max_len * 0.4) && $distance > 0) {
-                $suggestions[] = $pop_query;
-            }
-        }
 
         // Similar product names
         $like = '%' . $wpdb->esc_like(mb_substr($query, 0, 3)) . '%';

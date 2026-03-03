@@ -17,8 +17,6 @@ delete_option('wcss_version');
 
 // Drop custom tables
 $tables = [
-    $wpdb->prefix . 'wcss_search_log',
-    $wpdb->prefix . 'wcss_analytics',
     $wpdb->prefix . 'wcss_boosted_products',
     $wpdb->prefix . 'wcss_banners',
     $wpdb->prefix . 'wcss_synonyms',
@@ -31,4 +29,3 @@ foreach ($tables as $table) {
 
 // Clear scheduled events
 wp_clear_scheduled_hook('wcss_calculate_correlations');
-wp_clear_scheduled_hook('wcss_cleanup_analytics');

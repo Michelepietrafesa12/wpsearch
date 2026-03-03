@@ -2,7 +2,7 @@
  * WC SmartSearch - Frontend JavaScript
  *
  * Fullscreen overlay search with AJAX, infinite scroll, autocomplete,
- * dynamic filters, banners, analytics, and product recommendations.
+ * dynamic filters, banners, and product recommendations.
  *
  * @version 2.2.0
  */
@@ -55,24 +55,6 @@
         return isNaN(n) ? '' : CURRENCY + n.toFixed(2);
     }
 
-    function genId() {
-        return 'xxxx-xxxx-xxxx'.replace(/x/g, function () {
-            return ((Math.random() * 16) | 0).toString(16);
-        }) + '-' + Date.now().toString(36);
-    }
-
-    function getCookie(name) {
-        var m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
-        return m ? decodeURIComponent(m[1]) : '';
-    }
-
-    function setCookie(name, val, days) {
-        var exp = '';
-        if (days) { var d = new Date(); d.setTime(d.getTime() + days * 864e5); exp = '; expires=' + d.toUTCString(); }
-        var secure = location.protocol === 'https:' ? '; Secure' : '';
-        document.cookie = name + '=' + encodeURIComponent(val) + exp + '; path=/; SameSite=Lax' + secure;
-    }
-
     function svgIcon(paths, w) {
         w = w || 20;
         return '<svg width="' + w + '" height="' + w + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' + paths + '</svg>';
@@ -83,16 +65,6 @@
     var ICON_X      = svgIcon('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>', 18);
     var ICON_PREV   = svgIcon('<polyline points="15 18 9 12 15 6"/>', 24);
     var ICON_NEXT   = svgIcon('<polyline points="9 18 15 12 9 6"/>', 24);
-
-    /* ---------------------------------------------------------------
-     * 2. SESSION TRACKING
-     * ------------------------------------------------------------- */
-    var Session = { id: '', searchSession: '' };
-
-    function initSession() {
-        Session.id = getCookie('wcss_session') || (function () { var v = genId(); setCookie('wcss_session', v, 30); return v; })();
-        Session.searchSession = getCookie('wcss_search_session') || (function () { var v = genId(); setCookie('wcss_search_session', v, 1); return v; })();
-    }
 
     /* ---------------------------------------------------------------
      * 3. CLIENT-SIDE CACHE
@@ -162,10 +134,7 @@
     /* ---------------------------------------------------------------
      * 6. ANALYTICS
      * ------------------------------------------------------------- */
-    function trackEvent(type, data) {
-        ajaxPost('wcss_analytics', Object.assign({ event_type: type, session_id: Session.id }, data || {}))
-            .catch(function () { /* silent */ });
-    }
+
 
     /* ---------------------------------------------------------------
      * 7. OVERLAY DOM (LAZY BUILD)
@@ -302,7 +271,7 @@
                 S.products = prods;
                 S.facets   = data.facets || null;
                 renderResults(data);
-                trackEvent('search', { query: q });
+
             } else {
                 S.products = S.products.concat(prods);
                 appendProducts(prods, data.banners);
@@ -390,7 +359,6 @@
 
         // Image
         var imgWrap = el('a', 'wcss-product-card__image-wrap', { href: p.url || '#' });
-        imgWrap.addEventListener('click', function () { trackEvent('click', { query: S.query, product_id: p.id }); });
         if (p.image) imgWrap.appendChild(el('img', 'wcss-product-card__image', { src: p.image, alt: p.name || '', loading: 'lazy' }));
         if (hasSale) { var badge = el('span', 'wcss-product-card__sale-badge'); badge.textContent = 'Sale'; imgWrap.appendChild(badge); }
         card.appendChild(imgWrap);
@@ -401,7 +369,6 @@
 
         var nm = el('a', 'wcss-product-card__name', { href: p.url || '#' });
         nm.textContent = p.name || '';
-        nm.addEventListener('click', function () { trackEvent('click', { query: S.query, product_id: p.id }); });
         info.appendChild(nm);
 
         var pw = el('div', 'wcss-product-card__price');
@@ -445,7 +412,7 @@
             btn.classList.remove('wcss-product-card__add-to-cart--loading');
             btn.classList.add('wcss-product-card__add-to-cart--added');
             btn.textContent = I18N.added || 'Added!';
-            trackEvent('add_to_cart', { query: S.query, product_id: pid });
+
             document.body.dispatchEvent(new Event('wc_fragment_refresh'));
             setTimeout(function () { btn.disabled = false; btn.classList.remove('wcss-product-card__add-to-cart--added'); btn.textContent = orig; }, 2000);
         }).catch(function () { btn.disabled = false; btn.classList.remove('wcss-product-card__add-to-cart--loading'); btn.textContent = orig; });
@@ -874,7 +841,6 @@
      * 22. INIT
      * ------------------------------------------------------------- */
     function init() {
-        initSession();
         bindTriggers();
         Recs.init();
         initDarkMode();

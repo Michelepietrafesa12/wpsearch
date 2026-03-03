@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WC SmartSearch
  * Plugin URI: https://github.com/wc-smartsearch
- * Description: Motore di ricerca intelligente per WooCommerce con scoring avanzato, fuzzy search, filtri dinamici, product boosting, banner promozionali, analytics e prodotti consigliati.
+ * Description: Motore di ricerca intelligente per WooCommerce con scoring avanzato, fuzzy search, filtri dinamici, product boosting, banner promozionali e prodotti consigliati.
  * Version: 2.2.0
  * Author: SmartSearch
  * Author URI: https://github.com/wc-smartsearch
@@ -72,7 +72,6 @@ function wcss_init() {
     // Load classes
     require_once WCSS_PLUGIN_DIR . 'classes/class-wcss-engine.php';
     require_once WCSS_PLUGIN_DIR . 'classes/class-wcss-cache.php';
-    require_once WCSS_PLUGIN_DIR . 'classes/class-wcss-analytics.php';
     require_once WCSS_PLUGIN_DIR . 'classes/class-wcss-correlations.php';
     require_once WCSS_PLUGIN_DIR . 'includes/class-wcss-cron.php';
 
@@ -101,13 +100,9 @@ function wcss_init() {
     add_action('wp_ajax_nopriv_wcss_filters', [$ajax, 'handle_filters']);
     add_action('wp_ajax_wcss_banners', [$ajax, 'handle_banners']);
     add_action('wp_ajax_nopriv_wcss_banners', [$ajax, 'handle_banners']);
-    add_action('wp_ajax_wcss_analytics', [$ajax, 'handle_analytics']);
-    add_action('wp_ajax_nopriv_wcss_analytics', [$ajax, 'handle_analytics']);
     add_action('wp_ajax_wcss_recommendations', [$ajax, 'handle_recommendations']);
     add_action('wp_ajax_nopriv_wcss_recommendations', [$ajax, 'handle_recommendations']);
 
-    // Conversion tracking hooks (fail-safe)
-    add_action('woocommerce_thankyou', 'wcss_track_conversion', 10, 1);
 }
 add_action('plugins_loaded', 'wcss_init');
 
@@ -237,30 +232,6 @@ function wcss_render_cart_recommendations() {
 }
 
 /**
- * Track conversion on order complete (fail-safe).
- */
-function wcss_track_conversion($order_id) {
-    try {
-        $options = wcss_get_options();
-        if (empty($options['analytics_enabled'])) {
-            return;
-        }
-        $search_session = isset($_COOKIE['wcss_search_session']) ? sanitize_text_field(wp_unslash($_COOKIE['wcss_search_session'])) : '';
-        if (empty($search_session)) {
-            return;
-        }
-        $analytics = new WCSS_Analytics();
-        $order = wc_get_order($order_id);
-        if (!$order) {
-            return;
-        }
-        $analytics->track_conversion($order_id, $search_session, $order->get_total());
-    } catch (\Throwable $e) {
-        // Fail-safe: never block checkout
-    }
-}
-
-/**
  * Get plugin options with static cache.
  */
 function wcss_get_options() {
@@ -273,8 +244,6 @@ function wcss_get_options() {
             'fuzzy_enabled'              => 1,
             'synonyms_enabled'           => 1,
             'filters_enabled'            => 1,
-            'analytics_enabled'          => 1,
-            'analytics_webhook_url'      => '',
             'cache_enabled'              => 1,
             'cache_ttl'                  => 300,
             'recommendations_enabled'    => 1,

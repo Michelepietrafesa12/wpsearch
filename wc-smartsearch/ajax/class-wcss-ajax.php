@@ -2,7 +2,7 @@
 /**
  * WC SmartSearch AJAX Handler
  *
- * Handles all AJAX endpoints for search, suggestions, filters, banners, and analytics.
+ * Handles all AJAX endpoints for search, suggestions, filters, banners, and recommendations.
  */
 
 if (!defined('ABSPATH')) {
@@ -64,13 +64,6 @@ class WCSS_Ajax {
         // Cache results
         $cache->set($cache_key, $results);
 
-        // Log search (only first page)
-        if ($offset === 0 && !empty($options['analytics_enabled'])) {
-            $analytics = new WCSS_Analytics();
-            $session_id = isset($_COOKIE['wcss_session']) ? sanitize_text_field(wp_unslash($_COOKIE['wcss_session'])) : '';
-            $analytics->log_search($query, $results['total_count'], $session_id);
-        }
-
         wp_send_json($results);
     }
 
@@ -131,42 +124,6 @@ class WCSS_Ajax {
         $banners = $engine->get_banners($query);
 
         wp_send_json(['success' => true, 'banners' => $banners]);
-    }
-
-    /**
-     * Handle analytics event.
-     * POST: action=wcss_analytics
-     */
-    public function handle_analytics() {
-        check_ajax_referer('wcss_nonce', 'nonce');
-
-        $options = wcss_get_options();
-        if (empty($options['analytics_enabled'])) {
-            wp_send_json(['success' => true]);
-        }
-
-        $raw = json_decode(file_get_contents('php://input'), true);
-        if (!is_array($raw)) {
-            $raw = [];
-        }
-        // Normalize: always sanitize regardless of input source
-        $data = [
-            'event_type' => sanitize_text_field($raw['event_type'] ?? (isset($_POST['event_type']) ? wp_unslash($_POST['event_type']) : '')),
-            'query'      => sanitize_text_field($raw['query'] ?? (isset($_POST['query']) ? wp_unslash($_POST['query']) : '')),
-            'product_id' => intval($raw['product_id'] ?? ($_POST['product_id'] ?? 0)),
-            'session_id' => sanitize_text_field($raw['session_id'] ?? (isset($_POST['session_id']) ? wp_unslash($_POST['session_id']) : '')),
-        ];
-
-        $allowed_events = ['search', 'click', 'add_to_cart', 'conversion'];
-
-        if (!in_array($data['event_type'], $allowed_events, true)) {
-            wp_send_json_error(['message' => 'Invalid event type']);
-        }
-
-        $analytics = new WCSS_Analytics();
-        $analytics->track_event($data['event_type'], $data);
-
-        wp_send_json(['success' => true]);
     }
 
     /**

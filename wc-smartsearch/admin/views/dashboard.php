@@ -7,8 +7,6 @@
  * @var array  $boosts      Boosted products.
  * @var array  $banners     Banners.
  * @var array  $synonyms    Synonyms.
- * @var array  $stats       Analytics stats.
- * @var array  $popular     Popular searches.
  * @var array  $corr_stats  Correlation stats.
  */
 
@@ -21,7 +19,6 @@ $tabs = [
     'boosting'     => __('Boosting', 'wc-smartsearch'),
     'banners'      => __('Banner', 'wc-smartsearch'),
     'synonyms'     => __('Sinonimi', 'wc-smartsearch'),
-    'analytics'    => __('Analytics', 'wc-smartsearch'),
     'correlations' => __('Correlazioni', 'wc-smartsearch'),
 ];
 ?>
@@ -67,14 +64,6 @@ $tabs = [
                 <tr>
                     <th><?php esc_html_e('Filtri dinamici', 'wc-smartsearch'); ?></th>
                     <td><label><input type="checkbox" name="wcss_options[filters_enabled]" value="1" <?php checked($options['filters_enabled']); ?>> <?php esc_html_e('Mostra filtri nei risultati', 'wc-smartsearch'); ?></label></td>
-                </tr>
-                <tr>
-                    <th><?php esc_html_e('Analytics', 'wc-smartsearch'); ?></th>
-                    <td><label><input type="checkbox" name="wcss_options[analytics_enabled]" value="1" <?php checked($options['analytics_enabled']); ?>> <?php esc_html_e('Traccia ricerche e conversioni', 'wc-smartsearch'); ?></label></td>
-                </tr>
-                <tr>
-                    <th><?php esc_html_e('Webhook URL (n8n)', 'wc-smartsearch'); ?></th>
-                    <td><input type="url" name="wcss_options[analytics_webhook_url]" value="<?php echo esc_attr($options['analytics_webhook_url']); ?>" class="regular-text" placeholder="https://n8n.example.com/webhook/..."></td>
                 </tr>
                 <tr>
                     <th><?php esc_html_e('Cache', 'wc-smartsearch'); ?></th>
@@ -323,69 +312,6 @@ $tabs = [
                             <td>
                                 <button class="button wcss-delete-synonym" data-id="<?php echo esc_attr($syn['id']); ?>"><?php esc_html_e('Elimina', 'wc-smartsearch'); ?></button>
                             </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-        </div>
-
-        <?php elseif ($active_tab === 'analytics') : ?>
-        <!-- ANALYTICS TAB -->
-        <div class="wcss-section">
-            <h2><?php esc_html_e('Analytics - Ultimi 30 giorni', 'wc-smartsearch'); ?></h2>
-
-            <div class="wcss-stats-grid">
-                <div class="wcss-stat-card">
-                    <span class="wcss-stat-number"><?php echo esc_html(number_format_i18n($stats['total_searches'])); ?></span>
-                    <span class="wcss-stat-label"><?php esc_html_e('Ricerche totali', 'wc-smartsearch'); ?></span>
-                </div>
-                <div class="wcss-stat-card">
-                    <span class="wcss-stat-number"><?php echo esc_html(number_format_i18n($stats['unique_queries'])); ?></span>
-                    <span class="wcss-stat-label"><?php esc_html_e('Query uniche', 'wc-smartsearch'); ?></span>
-                </div>
-                <div class="wcss-stat-card">
-                    <span class="wcss-stat-number"><?php echo esc_html(number_format_i18n($stats['no_results'])); ?></span>
-                    <span class="wcss-stat-label"><?php esc_html_e('Senza risultati', 'wc-smartsearch'); ?></span>
-                </div>
-                <div class="wcss-stat-card">
-                    <span class="wcss-stat-number"><?php echo esc_html(number_format_i18n($stats['clicks'])); ?></span>
-                    <span class="wcss-stat-label"><?php esc_html_e('Click prodotti', 'wc-smartsearch'); ?></span>
-                </div>
-                <div class="wcss-stat-card">
-                    <span class="wcss-stat-number"><?php echo esc_html(number_format_i18n($stats['add_to_carts'])); ?></span>
-                    <span class="wcss-stat-label"><?php esc_html_e('Aggiunte al carrello', 'wc-smartsearch'); ?></span>
-                </div>
-                <div class="wcss-stat-card">
-                    <span class="wcss-stat-number"><?php echo esc_html(number_format_i18n($stats['conversions'])); ?></span>
-                    <span class="wcss-stat-label"><?php esc_html_e('Conversioni', 'wc-smartsearch'); ?></span>
-                </div>
-                <div class="wcss-stat-card wcss-stat-highlight">
-                    <span class="wcss-stat-number"><?php echo wp_kses_post(wc_price($stats['conversion_revenue'])); ?></span>
-                    <span class="wcss-stat-label"><?php esc_html_e('Fatturato da ricerca', 'wc-smartsearch'); ?></span>
-                </div>
-            </div>
-
-            <h3><?php esc_html_e('Ricerche Popolari', 'wc-smartsearch'); ?></h3>
-            <table class="wp-list-table widefat fixed striped">
-                <thead>
-                    <tr>
-                        <th><?php esc_html_e('Query', 'wc-smartsearch'); ?></th>
-                        <th><?php esc_html_e('Ricerche', 'wc-smartsearch'); ?></th>
-                        <th><?php esc_html_e('Media risultati', 'wc-smartsearch'); ?></th>
-                        <th><?php esc_html_e('Ultima ricerca', 'wc-smartsearch'); ?></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($popular)) : ?>
-                        <tr><td colspan="4"><?php esc_html_e('Nessun dato disponibile.', 'wc-smartsearch'); ?></td></tr>
-                    <?php else : ?>
-                        <?php foreach ($popular as $pop) : ?>
-                        <tr>
-                            <td><strong><?php echo esc_html($pop['query']); ?></strong></td>
-                            <td><?php echo esc_html(number_format_i18n($pop['search_count'])); ?></td>
-                            <td><?php echo esc_html(round($pop['avg_results'])); ?></td>
-                            <td><?php echo esc_html(wp_date('d/m/Y H:i', strtotime($pop['last_searched']))); ?></td>
                         </tr>
                         <?php endforeach; ?>
                     <?php endif; ?>

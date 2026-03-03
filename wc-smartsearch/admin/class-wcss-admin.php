@@ -90,8 +90,6 @@ class WCSS_Admin {
         $sanitized['fuzzy_enabled']              = !empty($input['fuzzy_enabled']) ? 1 : 0;
         $sanitized['synonyms_enabled']           = !empty($input['synonyms_enabled']) ? 1 : 0;
         $sanitized['filters_enabled']            = !empty($input['filters_enabled']) ? 1 : 0;
-        $sanitized['analytics_enabled']          = !empty($input['analytics_enabled']) ? 1 : 0;
-        $sanitized['analytics_webhook_url']      = esc_url_raw($input['analytics_webhook_url'] ?? '');
         $sanitized['cache_enabled']              = !empty($input['cache_enabled']) ? 1 : 0;
         $sanitized['cache_ttl']                  = max(60, intval($input['cache_ttl'] ?? 300));
         $sanitized['recommendations_enabled']    = !empty($input['recommendations_enabled']) ? 1 : 0;
@@ -105,7 +103,7 @@ class WCSS_Admin {
      */
     public function render_dashboard() {
         $options = wcss_get_options();
-        $allowed_tabs = ['settings', 'boosting', 'banners', 'synonyms', 'analytics', 'correlations'];
+        $allowed_tabs = ['settings', 'boosting', 'banners', 'synonyms', 'correlations'];
         $active_tab = isset($_GET['tab']) && in_array(wp_unslash($_GET['tab']), $allowed_tabs, true)
             ? sanitize_text_field(wp_unslash($_GET['tab']))
             : 'settings';
@@ -114,9 +112,6 @@ class WCSS_Admin {
         $boosts = $this->get_boosts();
         $banners = $this->get_banners();
         $synonyms = $this->get_synonyms();
-        $analytics = new WCSS_Analytics();
-        $stats = $analytics->get_stats(30);
-        $popular = $analytics->get_popular_searches(20, 30);
         $correlations = new WCSS_Correlations();
         $corr_stats = $correlations->get_stats();
 

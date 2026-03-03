@@ -22,10 +22,6 @@ class WCSS_Installer {
         if (!wp_next_scheduled('wcss_calculate_correlations')) {
             wp_schedule_event(strtotime('tomorrow 3:00am'), 'daily', 'wcss_calculate_correlations');
         }
-        if (!wp_next_scheduled('wcss_cleanup_analytics')) {
-            wp_schedule_event(time(), 'daily', 'wcss_cleanup_analytics');
-        }
-
         update_option('wcss_version', WCSS_VERSION);
         flush_rewrite_rules();
     }
@@ -35,7 +31,6 @@ class WCSS_Installer {
      */
     public static function deactivate() {
         wp_clear_scheduled_hook('wcss_calculate_correlations');
-        wp_clear_scheduled_hook('wcss_cleanup_analytics');
         flush_rewrite_rules();
     }
 
@@ -47,41 +42,6 @@ class WCSS_Installer {
         $charset_collate = $wpdb->get_charset_collate();
 
         $sql = [];
-
-        // Search log table
-        $sql[] = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wcss_search_log (
-            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-            query VARCHAR(255) NOT NULL,
-            results_count INT UNSIGNED DEFAULT 0,
-            user_id BIGINT UNSIGNED DEFAULT 0,
-            session_id VARCHAR(64) DEFAULT '',
-            ip_address VARCHAR(45) DEFAULT '',
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            INDEX idx_query (query(100)),
-            INDEX idx_created (created_at),
-            INDEX idx_session (session_id)
-        ) {$charset_collate};";
-
-        // Analytics table
-        $sql[] = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wcss_analytics (
-            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-            event_type VARCHAR(50) NOT NULL,
-            query VARCHAR(255) DEFAULT '',
-            product_id BIGINT UNSIGNED DEFAULT 0,
-            order_id BIGINT UNSIGNED DEFAULT 0,
-            order_total DECIMAL(10,2) DEFAULT 0,
-            session_id VARCHAR(64) DEFAULT '',
-            user_id BIGINT UNSIGNED DEFAULT 0,
-            extra_data TEXT DEFAULT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            INDEX idx_event (event_type),
-            INDEX idx_query (query(100)),
-            INDEX idx_product (product_id),
-            INDEX idx_session (session_id),
-            INDEX idx_created (created_at)
-        ) {$charset_collate};";
 
         // Boosted products table
         $sql[] = "CREATE TABLE IF NOT EXISTS {$wpdb->prefix}wcss_boosted_products (
@@ -161,8 +121,6 @@ class WCSS_Installer {
                 'fuzzy_enabled'              => 1,
                 'synonyms_enabled'           => 1,
                 'filters_enabled'            => 1,
-                'analytics_enabled'          => 1,
-                'analytics_webhook_url'      => '',
                 'cache_enabled'              => 1,
                 'cache_ttl'                  => 300,
                 'recommendations_enabled'    => 1,

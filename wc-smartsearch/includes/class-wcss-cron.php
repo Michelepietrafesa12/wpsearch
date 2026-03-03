@@ -16,7 +16,6 @@ class WCSS_Cron {
      */
     public static function init() {
         add_action('wcss_calculate_correlations', [__CLASS__, 'calculate_correlations']);
-        add_action('wcss_cleanup_analytics', [__CLASS__, 'cleanup_analytics']);
     }
 
     /**
@@ -32,18 +31,6 @@ class WCSS_Cron {
             );
         } catch (\Throwable $e) {
             error_log('WC SmartSearch Cron Error (correlations): ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Cleanup old analytics data.
-     */
-    public static function cleanup_analytics() {
-        try {
-            $analytics = new WCSS_Analytics();
-            $analytics->cleanup(90);
-        } catch (\Throwable $e) {
-            error_log('WC SmartSearch Cron Error (cleanup): ' . $e->getMessage());
         }
     }
 }

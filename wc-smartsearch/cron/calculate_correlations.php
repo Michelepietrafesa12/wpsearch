@@ -87,10 +87,4 @@ echo "Total correlations: {$result['total_correlations']}\n";
 echo "Products with correlations: {$result['total_products']}\n";
 echo "Average score: {$result['avg_score']}\n";
 
-// Also cleanup old analytics
-require_once dirname(__FILE__) . '/../classes/class-wcss-analytics.php';
-$analytics = new WCSS_Analytics();
-$analytics->cleanup(90);
-echo "Analytics cleanup done (>90 days)\n";
-
 exit(0);

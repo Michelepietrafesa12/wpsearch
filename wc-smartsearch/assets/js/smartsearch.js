@@ -58,6 +58,13 @@
         return isNaN(n) ? '' : CURRENCY + n.toFixed(2);
     }
 
+    function safeUrl(url) {
+        if (!url || typeof url !== 'string') return '#';
+        var lower = url.trim().toLowerCase();
+        if (lower.indexOf('javascript:') === 0 || lower.indexOf('data:') === 0 || lower.indexOf('vbscript:') === 0) return '#';
+        return url;
+    }
+
     function svgIcon(paths, w) {
         w = w || 20;
         return '<svg width="' + w + '" height="' + w + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' + paths + '</svg>';
@@ -341,7 +348,7 @@
         var hasSale = p.sale_price && parseFloat(p.sale_price) < parseFloat(p.price);
 
         // Image container
-        var imgWrap = el('a', 'wcss-product-image', { href: p.url || '#' });
+        var imgWrap = el('a', 'wcss-product-image', { href: safeUrl(p.url) });
         if (p.image) {
             imgWrap.appendChild(el('img', '', { src: p.image, alt: p.name || '', loading: 'lazy' }));
         }
@@ -360,7 +367,7 @@
             info.appendChild(b);
         }
 
-        var nm = el('a', 'wcss-product-name', { href: p.url || '#' });
+        var nm = el('a', 'wcss-product-name', { href: safeUrl(p.url) });
         nm.textContent = p.name || '';
         info.appendChild(nm);
 
@@ -423,7 +430,7 @@
                 content = el('div'); content.textContent = b.html;
             }
             if (b.url && content) {
-                var a = el('a', '', { href: b.url, target: b.new_tab ? '_blank' : '_self', rel: 'noopener' });
+                var a = el('a', '', { href: safeUrl(b.url), target: b.new_tab ? '_blank' : '_self', rel: 'noopener' });
                 a.appendChild(content); wrap.appendChild(a);
             } else if (content) {
                 wrap.appendChild(content);
@@ -581,8 +588,11 @@
         openMobile: function () {
             if (!D.mobileFilters || !D.mobileBody) return;
             this.mobileOpen = true;
-            // Clone desktop filter content into mobile panel
-            D.mobileBody.innerHTML = D.filtersSidebar.innerHTML;
+            // Clone desktop filter content into mobile panel (use cloneNode, not innerHTML)
+            D.mobileBody.innerHTML = '';
+            Array.prototype.forEach.call(D.filtersSidebar.childNodes, function (node) {
+                D.mobileBody.appendChild(node.cloneNode(true));
+            });
             D.mobileBackdrop.classList.add('active');
             D.mobileFilters.classList.add('active');
         },
@@ -848,12 +858,12 @@
             var card = el('div', 'wcss-recommendation-card');
             var hasSale = p.sale_price && parseFloat(p.sale_price) < parseFloat(p.price);
 
-            var imgLink = el('a', 'wcss-product-image', { href: p.url || '#' });
+            var imgLink = el('a', 'wcss-product-image', { href: safeUrl(p.url) });
             if (p.image) imgLink.appendChild(el('img', '', { src: p.image, alt: p.name || '', loading: 'lazy' }));
             card.appendChild(imgLink);
 
             var info = el('div', 'wcss-product-info');
-            var nm = el('a', 'wcss-product-name', { href: p.url || '#' });
+            var nm = el('a', 'wcss-product-name', { href: safeUrl(p.url) });
             nm.textContent = p.name || '';
             info.appendChild(nm);
 

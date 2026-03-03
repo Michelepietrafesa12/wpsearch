@@ -69,7 +69,8 @@
     function setCookie(name, val, days) {
         var exp = '';
         if (days) { var d = new Date(); d.setTime(d.getTime() + days * 864e5); exp = '; expires=' + d.toUTCString(); }
-        document.cookie = name + '=' + encodeURIComponent(val) + exp + '; path=/; SameSite=Lax';
+        var secure = location.protocol === 'https:' ? '; Secure' : '';
+        document.cookie = name + '=' + encodeURIComponent(val) + exp + '; path=/; SameSite=Lax' + secure;
     }
 
     function svgIcon(paths, w) {
@@ -434,11 +435,12 @@
 
         var url = new URL(AJAX_URL, location.origin);
         url.searchParams.set('action', 'woocommerce_add_to_cart');
+        url.searchParams.set('nonce', NONCE);
 
         fetch(url.toString(), {
             method: 'POST', credentials: 'same-origin',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'product_id=' + pid + '&quantity=1'
+            body: 'product_id=' + encodeURIComponent(pid) + '&quantity=1'
         }).then(function (r) { return r.json(); }).then(function () {
             btn.classList.remove('wcss-product-card__add-to-cart--loading');
             btn.classList.add('wcss-product-card__add-to-cart--added');
@@ -461,7 +463,7 @@
             if (b.image) {
                 content = el('img', 'wcss-banner__image', { src: b.image, alt: b.title || '', loading: 'lazy' });
             } else if (b.html) {
-                content = el('div'); content.innerHTML = b.html;
+                content = el('div'); content.textContent = b.html;
             }
             if (b.url && content) {
                 var a = el('a', 'wcss-banner__link', { href: b.url, target: b.new_tab ? '_blank' : '_self', rel: 'noopener' });

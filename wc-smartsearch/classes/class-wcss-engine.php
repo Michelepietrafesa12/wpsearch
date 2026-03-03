@@ -311,19 +311,19 @@ class WCSS_Engine {
         $cat_where = '';
         if (!empty($args['category'])) {
             $cat_ids = array_map('intval', (array)$args['category']);
-            $cat_placeholders = implode(',', $cat_ids);
+            $cat_placeholders = implode(',', array_fill(0, count($cat_ids), '%d'));
             $cat_join = "INNER JOIN {$wpdb->term_relationships} tr_cat ON p.ID = tr_cat.object_id
                          INNER JOIN {$wpdb->term_taxonomy} tt_cat ON tr_cat.term_taxonomy_id = tt_cat.term_taxonomy_id
                              AND tt_cat.taxonomy = 'product_cat'";
-            $cat_where = " AND tt_cat.term_id IN ({$cat_placeholders})";
+            $cat_where = $wpdb->prepare(" AND tt_cat.term_id IN ({$cat_placeholders})", ...$cat_ids);
         }
 
         // Brand filter
         $mfr_where = '';
         if (!empty($args['manufacturer'])) {
             $mfr_ids = array_map('intval', (array)$args['manufacturer']);
-            $mfr_placeholders = implode(',', $mfr_ids);
-            $mfr_where = " AND t_brand.term_id IN ({$mfr_placeholders})";
+            $mfr_placeholders = implode(',', array_fill(0, count($mfr_ids), '%d'));
+            $mfr_where = $wpdb->prepare(" AND t_brand.term_id IN ({$mfr_placeholders})", ...$mfr_ids);
         }
 
         // Price filter
@@ -364,9 +364,9 @@ class WCSS_Engine {
                     {$mfr_where}
                     {$price_where}
                 ORDER BY title_word_matches DESC, p.post_title ASC
-                LIMIT {$max_results}";
+                LIMIT %d";
 
-        $results = $wpdb->get_results($sql, ARRAY_A);
+        $results = $wpdb->get_results($wpdb->prepare($sql, $max_results), ARRAY_A);
 
         // Format products
         $products = [];
@@ -565,14 +565,14 @@ class WCSS_Engine {
         $table = $wpdb->prefix . 'wcss_boosted_products';
 
         $now = current_time('mysql');
-        $boosts = $wpdb->get_results(
+        $boosts = $wpdb->get_results($wpdb->prepare(
             "SELECT product_id, multiplier, keywords
              FROM {$table}
              WHERE active = 1
-               AND (start_date IS NULL OR start_date <= '{$now}')
-               AND (end_date IS NULL OR end_date >= '{$now}')",
-            ARRAY_A
-        );
+               AND (start_date IS NULL OR start_date <= %s)
+               AND (end_date IS NULL OR end_date >= %s)",
+            $now, $now
+        ), ARRAY_A);
 
         if (empty($boosts)) {
             return $products;
@@ -716,9 +716,9 @@ class WCSS_Engine {
                     AND p.post_status = 'publish'
                     AND ({$where})
                 ORDER BY p.post_title ASC
-                LIMIT {$max_results}";
+                LIMIT %d";
 
-        $results = $wpdb->get_results($sql, ARRAY_A);
+        $results = $wpdb->get_results($wpdb->prepare($sql, $max_results), ARRAY_A);
         $products = [];
         if ($results) {
             foreach ($results as $row) {
@@ -948,19 +948,19 @@ class WCSS_Engine {
     /**
      * Get active banners for the query.
      */
-    private function get_banners($query) {
+    public function get_banners($query) {
         global $wpdb;
         $table = $wpdb->prefix . 'wcss_banners';
         $now = current_time('mysql');
 
-        $banners = $wpdb->get_results(
+        $banners = $wpdb->get_results($wpdb->prepare(
             "SELECT * FROM {$table}
              WHERE active = 1
-               AND (start_date IS NULL OR start_date <= '{$now}')
-               AND (end_date IS NULL OR end_date >= '{$now}')
+               AND (start_date IS NULL OR start_date <= %s)
+               AND (end_date IS NULL OR end_date >= %s)
              ORDER BY sort_order ASC",
-            ARRAY_A
-        );
+            $now, $now
+        ), ARRAY_A);
 
         $result = ['top' => [], 'middle' => [], 'bottom' => []];
 

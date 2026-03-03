@@ -32,7 +32,7 @@ define('WCSS_PLUGIN_BASENAME', plugin_basename(__FILE__));
 function wcss_check_woocommerce() {
     if (!class_exists('WooCommerce')) {
         add_action('admin_notices', function () {
-            echo '<div class="error"><p><strong>WC SmartSearch</strong> richiede WooCommerce attivo.</p></div>';
+            echo '<div class="error"><p><strong>' . esc_html__('WC SmartSearch', 'wc-smartsearch') . '</strong> ' . esc_html__('richiede WooCommerce attivo.', 'wc-smartsearch') . '</p></div>';
         });
         return false;
     }
@@ -245,7 +245,7 @@ function wcss_track_conversion($order_id) {
         if (empty($options['analytics_enabled'])) {
             return;
         }
-        $search_session = isset($_COOKIE['wcss_search_session']) ? sanitize_text_field($_COOKIE['wcss_search_session']) : '';
+        $search_session = isset($_COOKIE['wcss_search_session']) ? sanitize_text_field(wp_unslash($_COOKIE['wcss_search_session'])) : '';
         if (empty($search_session)) {
             return;
         }

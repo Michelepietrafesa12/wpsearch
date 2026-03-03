@@ -11,7 +11,7 @@
  * 0 3 * * * /usr/bin/php /var/www/html/wp-content/plugins/wc-smartsearch/cron/calculate_correlations.php >> /var/log/wcss_cron.log 2>&1
  *
  * Generate token:
- * php -r "require_once('/path/to/wp-config.php'); echo md5(AUTH_KEY . 'wcss_cron');"
+ * php -r "require_once('/path/to/wp-config.php'); echo hash_hmac('sha256', 'wcss_cron', AUTH_KEY);"
  */
 
 // Determine WordPress root
@@ -49,10 +49,10 @@ if (!$wp_loaded) {
 
 // Security check for HTTP access
 if (php_sapi_name() !== 'cli') {
-    $token = isset($_GET['token']) ? sanitize_text_field($_GET['token']) : '';
-    $expected_token = md5(AUTH_KEY . 'wcss_cron');
+    $token = isset($_GET['token']) ? sanitize_text_field(wp_unslash($_GET['token'])) : '';
+    $expected_token = hash_hmac('sha256', 'wcss_cron', AUTH_KEY);
 
-    if ($token !== $expected_token) {
+    if (!hash_equals($expected_token, $token)) {
         http_response_code(403);
         echo "Forbidden: Invalid token\n";
         exit(1);

@@ -361,7 +361,7 @@ $tabs = [
                     <span class="wcss-stat-label"><?php esc_html_e('Conversioni', 'wc-smartsearch'); ?></span>
                 </div>
                 <div class="wcss-stat-card wcss-stat-highlight">
-                    <span class="wcss-stat-number"><?php echo esc_html(wc_price($stats['conversion_revenue'])); ?></span>
+                    <span class="wcss-stat-number"><?php echo wp_kses_post(wc_price($stats['conversion_revenue'])); ?></span>
                     <span class="wcss-stat-label"><?php esc_html_e('Fatturato da ricerca', 'wc-smartsearch'); ?></span>
                 </div>
             </div>

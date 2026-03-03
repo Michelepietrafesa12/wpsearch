@@ -46,8 +46,8 @@ class WCSS_Ajax {
             'limit'        => $limit,
             'category'     => isset($_GET['category']) ? array_map('intval', explode(',', sanitize_text_field(wp_unslash($_GET['category'])))) : [],
             'manufacturer' => isset($_GET['manufacturer']) ? array_map('intval', explode(',', sanitize_text_field(wp_unslash($_GET['manufacturer'])))) : [],
-            'price_min'    => isset($_GET['price_min']) ? floatval($_GET['price_min']) : 0,
-            'price_max'    => isset($_GET['price_max']) ? floatval($_GET['price_max']) : 0,
+            'price_min'    => isset($_GET['price_min']) ? floatval(wp_unslash($_GET['price_min'])) : 0,
+            'price_max'    => isset($_GET['price_max']) ? floatval(wp_unslash($_GET['price_max'])) : 0,
         ];
 
         $cache_key = $cache->build_key($query, $args);
@@ -67,7 +67,7 @@ class WCSS_Ajax {
         // Log search (only first page)
         if ($offset === 0 && !empty($options['analytics_enabled'])) {
             $analytics = new WCSS_Analytics();
-            $session_id = isset($_COOKIE['wcss_session']) ? sanitize_text_field($_COOKIE['wcss_session']) : '';
+            $session_id = isset($_COOKIE['wcss_session']) ? sanitize_text_field(wp_unslash($_COOKIE['wcss_session'])) : '';
             $analytics->log_search($query, $results['total_count'], $session_id);
         }
 
@@ -128,10 +128,7 @@ class WCSS_Ajax {
         $query = isset($_GET['q']) ? sanitize_text_field(wp_unslash($_GET['q'])) : '';
 
         $engine = new WCSS_Engine();
-        // We access banners through a search with empty results
-        $reflection = new ReflectionMethod($engine, 'get_banners');
-        $reflection->setAccessible(true);
-        $banners = $reflection->invoke($engine, $query);
+        $banners = $engine->get_banners($query);
 
         wp_send_json(['success' => true, 'banners' => $banners]);
     }
@@ -148,30 +145,26 @@ class WCSS_Ajax {
             wp_send_json(['success' => true]);
         }
 
-        $data = json_decode(file_get_contents('php://input'), true);
-        if (empty($data)) {
-            // Try POST params
-            $data = [
-                'event_type' => isset($_POST['event_type']) ? sanitize_text_field(wp_unslash($_POST['event_type'])) : '',
-                'query'      => isset($_POST['query']) ? sanitize_text_field(wp_unslash($_POST['query'])) : '',
-                'product_id' => isset($_POST['product_id']) ? intval($_POST['product_id']) : 0,
-                'session_id' => isset($_POST['session_id']) ? sanitize_text_field(wp_unslash($_POST['session_id'])) : '',
-            ];
+        $raw = json_decode(file_get_contents('php://input'), true);
+        if (!is_array($raw)) {
+            $raw = [];
         }
+        // Normalize: always sanitize regardless of input source
+        $data = [
+            'event_type' => sanitize_text_field($raw['event_type'] ?? (isset($_POST['event_type']) ? wp_unslash($_POST['event_type']) : '')),
+            'query'      => sanitize_text_field($raw['query'] ?? (isset($_POST['query']) ? wp_unslash($_POST['query']) : '')),
+            'product_id' => intval($raw['product_id'] ?? ($_POST['product_id'] ?? 0)),
+            'session_id' => sanitize_text_field($raw['session_id'] ?? (isset($_POST['session_id']) ? wp_unslash($_POST['session_id']) : '')),
+        ];
 
-        $event_type = sanitize_text_field($data['event_type'] ?? '');
         $allowed_events = ['search', 'click', 'add_to_cart', 'conversion'];
 
-        if (!in_array($event_type, $allowed_events, true)) {
+        if (!in_array($data['event_type'], $allowed_events, true)) {
             wp_send_json_error(['message' => 'Invalid event type']);
         }
 
         $analytics = new WCSS_Analytics();
-        $analytics->track_event($event_type, [
-            'query'      => sanitize_text_field($data['query'] ?? ''),
-            'product_id' => intval($data['product_id'] ?? 0),
-            'session_id' => sanitize_text_field($data['session_id'] ?? ''),
-        ]);
+        $analytics->track_event($data['event_type'], $data);
 
         wp_send_json(['success' => true]);
     }

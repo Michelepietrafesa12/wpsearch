@@ -105,7 +105,10 @@ class WCSS_Admin {
      */
     public function render_dashboard() {
         $options = wcss_get_options();
-        $active_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'settings';
+        $allowed_tabs = ['settings', 'boosting', 'banners', 'synonyms', 'analytics', 'correlations'];
+        $active_tab = isset($_GET['tab']) && in_array(wp_unslash($_GET['tab']), $allowed_tabs, true)
+            ? sanitize_text_field(wp_unslash($_GET['tab']))
+            : 'settings';
 
         // Get data for each tab
         $boosts = $this->get_boosts();
@@ -170,12 +173,15 @@ class WCSS_Admin {
 
         global $wpdb;
 
+        $start_date = sanitize_text_field(wp_unslash($_POST['start_date'] ?? ''));
+        $end_date = sanitize_text_field(wp_unslash($_POST['end_date'] ?? ''));
+
         $data = [
-            'product_id' => intval($_POST['product_id'] ?? 0),
-            'multiplier' => floatval($_POST['multiplier'] ?? 2.0),
-            'keywords'   => sanitize_text_field($_POST['keywords'] ?? ''),
-            'start_date' => !empty($_POST['start_date']) ? sanitize_text_field($_POST['start_date']) : null,
-            'end_date'   => !empty($_POST['end_date']) ? sanitize_text_field($_POST['end_date']) : null,
+            'product_id' => intval(wp_unslash($_POST['product_id'] ?? 0)),
+            'multiplier' => floatval(wp_unslash($_POST['multiplier'] ?? 2.0)),
+            'keywords'   => sanitize_text_field(wp_unslash($_POST['keywords'] ?? '')),
+            'start_date' => (!empty($start_date) && strtotime($start_date) !== false) ? $start_date : null,
+            'end_date'   => (!empty($end_date) && strtotime($end_date) !== false) ? $end_date : null,
             'active'     => 1,
         ];
 
@@ -183,13 +189,23 @@ class WCSS_Admin {
             wp_send_json_error(['message' => 'Product ID required']);
         }
 
-        $id = intval($_POST['boost_id'] ?? 0);
+        $id = intval(wp_unslash($_POST['boost_id'] ?? 0));
 
         if ($id > 0) {
-            $wpdb->update($wpdb->prefix . 'wcss_boosted_products', $data, ['id' => $id]);
+            $wpdb->update(
+                $wpdb->prefix . 'wcss_boosted_products',
+                $data,
+                ['id' => $id],
+                ['%d', '%f', '%s', '%s', '%s', '%d'],
+                ['%d']
+            );
         } else {
             $data['created_at'] = current_time('mysql');
-            $wpdb->insert($wpdb->prefix . 'wcss_boosted_products', $data);
+            $wpdb->insert(
+                $wpdb->prefix . 'wcss_boosted_products',
+                $data,
+                ['%d', '%f', '%s', '%s', '%s', '%d', '%s']
+            );
             $id = $wpdb->insert_id;
         }
 
@@ -241,15 +257,19 @@ class WCSS_Admin {
 
         global $wpdb;
 
+        $position = isset($_POST['position']) ? sanitize_text_field(wp_unslash($_POST['position'])) : 'top';
+        $b_start = sanitize_text_field(wp_unslash($_POST['start_date'] ?? ''));
+        $b_end = sanitize_text_field(wp_unslash($_POST['end_date'] ?? ''));
+
         $data = [
-            'title'      => sanitize_text_field($_POST['title'] ?? ''),
-            'image_url'  => esc_url_raw($_POST['image_url'] ?? ''),
-            'link_url'   => esc_url_raw($_POST['link_url'] ?? ''),
-            'position'   => in_array($_POST['position'] ?? '', ['top', 'middle', 'bottom']) ? $_POST['position'] : 'top',
-            'keywords'   => sanitize_text_field($_POST['keywords'] ?? ''),
-            'start_date' => !empty($_POST['start_date']) ? sanitize_text_field($_POST['start_date']) : null,
-            'end_date'   => !empty($_POST['end_date']) ? sanitize_text_field($_POST['end_date']) : null,
-            'sort_order' => intval($_POST['sort_order'] ?? 0),
+            'title'      => sanitize_text_field(wp_unslash($_POST['title'] ?? '')),
+            'image_url'  => esc_url_raw(wp_unslash($_POST['image_url'] ?? '')),
+            'link_url'   => esc_url_raw(wp_unslash($_POST['link_url'] ?? '')),
+            'position'   => in_array($position, ['top', 'middle', 'bottom'], true) ? $position : 'top',
+            'keywords'   => sanitize_text_field(wp_unslash($_POST['keywords'] ?? '')),
+            'start_date' => (!empty($b_start) && strtotime($b_start) !== false) ? $b_start : null,
+            'end_date'   => (!empty($b_end) && strtotime($b_end) !== false) ? $b_end : null,
+            'sort_order' => intval(wp_unslash($_POST['sort_order'] ?? 0)),
             'active'     => 1,
         ];
 
@@ -257,13 +277,13 @@ class WCSS_Admin {
             wp_send_json_error(['message' => 'Image URL required']);
         }
 
-        $id = intval($_POST['banner_id'] ?? 0);
+        $id = intval(wp_unslash($_POST['banner_id'] ?? 0));
 
         if ($id > 0) {
-            $wpdb->update($wpdb->prefix . 'wcss_banners', $data, ['id' => $id]);
+            $wpdb->update($wpdb->prefix . 'wcss_banners', $data, ['id' => $id], ['%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d'], ['%d']);
         } else {
             $data['created_at'] = current_time('mysql');
-            $wpdb->insert($wpdb->prefix . 'wcss_banners', $data);
+            $wpdb->insert($wpdb->prefix . 'wcss_banners', $data, ['%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%s']);
             $id = $wpdb->insert_id;
         }
 
@@ -316,8 +336,8 @@ class WCSS_Admin {
         global $wpdb;
 
         $data = [
-            'word'    => sanitize_text_field($_POST['word'] ?? ''),
-            'synonym' => sanitize_text_field($_POST['synonym'] ?? ''),
+            'word'    => sanitize_text_field(wp_unslash($_POST['word'] ?? '')),
+            'synonym' => sanitize_text_field(wp_unslash($_POST['synonym'] ?? '')),
             'active'  => 1,
         ];
 
@@ -325,12 +345,12 @@ class WCSS_Admin {
             wp_send_json_error(['message' => 'Word and synonym required']);
         }
 
-        $id = intval($_POST['synonym_id'] ?? 0);
+        $id = intval(wp_unslash($_POST['synonym_id'] ?? 0));
 
         if ($id > 0) {
-            $wpdb->update($wpdb->prefix . 'wcss_synonyms', $data, ['id' => $id]);
+            $wpdb->update($wpdb->prefix . 'wcss_synonyms', $data, ['id' => $id], ['%s', '%s', '%d'], ['%d']);
         } else {
-            $wpdb->insert($wpdb->prefix . 'wcss_synonyms', $data);
+            $wpdb->insert($wpdb->prefix . 'wcss_synonyms', $data, ['%s', '%s', '%d']);
             $id = $wpdb->insert_id;
         }
 

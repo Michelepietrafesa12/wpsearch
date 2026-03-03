@@ -98,6 +98,7 @@ class WCSS_Analytics {
     public function get_popular_searches($limit = 20, $days = 30) {
         global $wpdb;
 
+        $days = absint($days);
         $date_from = gmdate('Y-m-d H:i:s', strtotime("-{$days} days"));
 
         return $wpdb->get_results($wpdb->prepare(
@@ -122,6 +123,7 @@ class WCSS_Analytics {
     public function get_stats($days = 30) {
         global $wpdb;
 
+        $days = absint($days);
         $date_from = gmdate('Y-m-d H:i:s', strtotime("-{$days} days"));
 
         $total_searches = $wpdb->get_var($wpdb->prepare(
@@ -195,6 +197,11 @@ class WCSS_Analytics {
             return;
         }
 
+        // SSRF protection: validate URL and reject private/internal addresses
+        if (!wp_http_validate_url($webhook_url)) {
+            return;
+        }
+
         $payload = [
             'event'     => $event_type,
             'data'      => $data,
@@ -218,6 +225,7 @@ class WCSS_Analytics {
     public function cleanup($days = 90) {
         global $wpdb;
 
+        $days = absint($days);
         $date = gmdate('Y-m-d H:i:s', strtotime("-{$days} days"));
 
         $wpdb->query($wpdb->prepare(
@@ -235,13 +243,11 @@ class WCSS_Analytics {
      * Get client IP address.
      */
     private function get_client_ip() {
-        $ip_keys = ['HTTP_X_FORWARDED_FOR', 'HTTP_CLIENT_IP', 'REMOTE_ADDR'];
-        foreach ($ip_keys as $key) {
-            if (!empty($_SERVER[$key])) {
-                $ip = explode(',', sanitize_text_field(wp_unslash($_SERVER[$key])));
-                return trim($ip[0]);
-            }
+        $ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : '0.0.0.0';
+        if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+            return '0.0.0.0';
         }
-        return '0.0.0.0';
+        // Hash IP for GDPR compliance (not stored in plain text)
+        return wp_hash($ip);
     }
 }

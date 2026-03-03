@@ -22,11 +22,17 @@
      * @param {string}  message   Text to display.
      * @param {string}  type      'success' or 'error'.
      */
+    function escHtml(s) {
+        var d = document.createElement('div');
+        d.appendChild(document.createTextNode(String(s)));
+        return d.innerHTML;
+    }
+
     function showNotice(selector, message, type) {
         var $el = $(selector);
         $el.removeClass('success error')
            .addClass(type)
-           .html(message)
+           .text(message)
            .stop(true)
            .fadeIn(200);
 
@@ -156,16 +162,18 @@
             if (!confirm(admin.i18n.confirm_delete)) {
                 return;
             }
-            var id = $(this).data('id');
+            var id = parseInt($(this).data('id'), 10);
+            if (isNaN(id)) return;
             ajaxPost('wcss_admin_delete_boost', { id: id }, function () {
-                $('tr[data-id="' + id + '"]').fadeOut(300, function () { $(this).remove(); });
+                $('tr').filter('[data-id="' + id + '"]').fadeOut(300, function () { $(this).remove(); });
             });
         });
 
         // Toggle boost
         $(document).on('click', '.wcss-toggle-boost', function () {
             var $btn = $(this);
-            var id   = $btn.data('id');
+            var id   = parseInt($btn.data('id'), 10);
+            if (isNaN(id)) return;
             ajaxPost('wcss_admin_toggle_boost', { id: id }, function (data) {
                 if (data.active) {
                     $btn.addClass('active').text($btn.text().replace(/\S+/, 'Attivo'));
@@ -201,7 +209,8 @@
             mediaFrame.on('select', function () {
                 var attachment = mediaFrame.state().get('selection').first().toJSON();
                 $('#banner-image-url').val(attachment.url);
-                $('#banner-preview').html('<img src="' + attachment.url + '">');
+                var img = $('<img>').attr('src', attachment.url).css('max-width', '200px');
+                $('#banner-preview').empty().append(img);
             });
 
             mediaFrame.open();
@@ -211,7 +220,8 @@
         $('#banner-image-url').on('change', function () {
             var url = $.trim($(this).val());
             if (url) {
-                $('#banner-preview').html('<img src="' + url + '">');
+                var img = $('<img>').attr('src', url).css('max-width', '200px');
+                $('#banner-preview').empty().append(img);
             } else {
                 $('#banner-preview').empty();
             }
@@ -246,16 +256,18 @@
             if (!confirm(admin.i18n.confirm_delete)) {
                 return;
             }
-            var id = $(this).data('id');
+            var id = parseInt($(this).data('id'), 10);
+            if (isNaN(id)) return;
             ajaxPost('wcss_admin_delete_banner', { id: id }, function () {
-                $('tr[data-id="' + id + '"]').fadeOut(300, function () { $(this).remove(); });
+                $('tr').filter('[data-id="' + id + '"]').fadeOut(300, function () { $(this).remove(); });
             });
         });
 
         // Toggle banner
         $(document).on('click', '.wcss-toggle-banner', function () {
             var $btn = $(this);
-            var id   = $btn.data('id');
+            var id   = parseInt($btn.data('id'), 10);
+            if (isNaN(id)) return;
             ajaxPost('wcss_admin_toggle_banner', { id: id }, function (data) {
                 if (data.active) {
                     $btn.addClass('active').text($btn.text().replace(/\S+/, 'Attivo'));
@@ -294,9 +306,10 @@
             if (!confirm(admin.i18n.confirm_delete)) {
                 return;
             }
-            var id = $(this).data('id');
+            var id = parseInt($(this).data('id'), 10);
+            if (isNaN(id)) return;
             ajaxPost('wcss_admin_delete_synonym', { id: id }, function () {
-                $('tr[data-id="' + id + '"]').fadeOut(300, function () { $(this).remove(); });
+                $('tr').filter('[data-id="' + id + '"]').fadeOut(300, function () { $(this).remove(); });
             });
         });
     }
@@ -312,7 +325,7 @@
 
             $btn.prop('disabled', true).find('.dashicons').addClass('spin');
             $result.removeClass('success error')
-                   .html(admin.i18n.calculating)
+                   .text(admin.i18n.calculating)
                    .fadeIn(200);
 
             ajaxPost('wcss_admin_calculate_correlations', {}, function (data) {
@@ -320,10 +333,9 @@
 
                 var msg = admin.i18n.calculated;
                 if (data) {
-                    msg += '<br>' +
-                           'Correlazioni: ' + (data.total_correlations || 0) +
-                           ' | Prodotti: ' + (data.total_products || 0) +
-                           ' | Ordini analizzati: ' + (data.orders_analyzed || 0);
+                    msg += ' - Correlazioni: ' + escHtml(data.total_correlations || 0) +
+                           ' | Prodotti: ' + escHtml(data.total_products || 0) +
+                           ' | Score medio: ' + escHtml(data.avg_score || 0);
                 }
                 showNotice('#wcss-correlation-result', msg, 'success');
             });

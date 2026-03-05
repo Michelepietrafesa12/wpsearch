@@ -207,21 +207,29 @@ class WCSS_Engine {
         return $variants;
     }
 
+    /** @var array|null Cached synonyms map (loaded once per request) */
+    private $synonyms_map = null;
+
     /**
      * Get synonyms from database.
+     * Uses a single query to load all active synonyms, cached for the request.
      */
     private function get_synonyms($word) {
-        global $wpdb;
-        $table = $wpdb->prefix . 'wcss_synonyms';
+        if ($this->synonyms_map === null) {
+            global $wpdb;
+            $table = $wpdb->prefix . 'wcss_synonyms';
+            $rows = $wpdb->get_results("SELECT word, synonym FROM {$table} WHERE active = 1", ARRAY_A);
+            $this->synonyms_map = [];
+            foreach ($rows as $row) {
+                $w = mb_strtolower($row['word']);
+                $s = mb_strtolower($row['synonym']);
+                $this->synonyms_map[$w][] = $s;
+                $this->synonyms_map[$s][] = $w;
+            }
+        }
 
-        $results = $wpdb->get_col($wpdb->prepare(
-            "SELECT synonym FROM {$table} WHERE word = %s AND active = 1
-             UNION
-             SELECT word FROM {$table} WHERE synonym = %s AND active = 1",
-            $word, $word
-        ));
-
-        return $results ?: [];
+        $word_lower = mb_strtolower($word);
+        return isset($this->synonyms_map[$word_lower]) ? array_unique($this->synonyms_map[$word_lower]) : [];
     }
 
     /**
@@ -262,7 +270,7 @@ class WCSS_Engine {
             $word_or = [];
             foreach ($variants as $variant) {
                 $like = '%' . $wpdb->esc_like($variant) . '%';
-                foreach (['p.post_title', 'p.post_content', 'p.post_excerpt', 'pm_sku.meta_value', 't_brand.name'] as $col) {
+                foreach (['p.post_title', 'p.post_excerpt', 'pm_sku.meta_value', 't_brand.name'] as $col) {
                     $word_or[] = "{$col} LIKE %s";
                     $where_values[] = $like;
                 }
@@ -348,9 +356,15 @@ class WCSS_Engine {
         // Single prepare() call with all values
         $results = $wpdb->get_results($wpdb->prepare($sql, ...$prepare_values), ARRAY_A);
 
-        // Format products
+        // Format products — prime caches to avoid N+1 queries
         $products = [];
         if ($results) {
+            $post_ids = wp_list_pluck($results, 'ID');
+            update_post_thumbnail_cache(
+                (object) ['posts' => array_map(function ($id) { return (object) ['ID' => $id]; }, $post_ids)]
+            );
+            update_object_term_cache($post_ids, 'product');
+
             foreach ($results as $row) {
                 $products[] = $this->format_product($row);
             }
@@ -371,15 +385,17 @@ class WCSS_Engine {
         $regular_price = floatval($row['regular_price'] ?? 0);
         $sale_price = !empty($row['sale_price']) ? floatval($row['sale_price']) : 0;
 
-        // Get categories
+        // Get categories (uses term cache primed above)
         $categories = wp_get_post_terms($product_id, 'product_cat', ['fields' => 'all']);
         $cat_data = [];
-        foreach ($categories as $cat) {
-            $cat_data[] = [
-                'id'   => $cat->term_id,
-                'name' => $cat->name,
-                'slug' => $cat->slug,
-            ];
+        if (!is_wp_error($categories)) {
+            foreach ($categories as $cat) {
+                $cat_data[] = [
+                    'id'   => $cat->term_id,
+                    'name' => $cat->name,
+                    'slug' => $cat->slug,
+                ];
+            }
         }
 
         return [
@@ -713,6 +729,12 @@ class WCSS_Engine {
         $results = $wpdb->get_results($wpdb->prepare($sql, ...$prepare_values), ARRAY_A);
         $products = [];
         if ($results) {
+            $post_ids = wp_list_pluck($results, 'ID');
+            update_post_thumbnail_cache(
+                (object) ['posts' => array_map(function ($id) { return (object) ['ID' => $id]; }, $post_ids)]
+            );
+            update_object_term_cache($post_ids, 'product');
+
             foreach ($results as $row) {
                 $products[] = $this->format_product($row);
             }

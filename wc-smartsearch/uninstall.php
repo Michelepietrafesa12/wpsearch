@@ -27,5 +27,12 @@ foreach ($tables as $table) {
     $wpdb->query("DROP TABLE IF EXISTS {$table}");
 }
 
+// Clear transients cache
+$wpdb->query(
+    "DELETE FROM {$wpdb->options}
+     WHERE option_name LIKE '_transient_wcss_%'
+        OR option_name LIKE '_transient_timeout_wcss_%'"
+);
+
 // Clear scheduled events
 wp_clear_scheduled_hook('wcss_calculate_correlations');

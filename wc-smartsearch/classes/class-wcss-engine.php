@@ -616,6 +616,7 @@ class WCSS_Engine {
                     'stock_status'   => $wc_product->get_stock_status(),
                     'total_sales'    => intval($wc_product->get_total_sales()),
                     'brand'          => '',
+                    'brand_id'       => 0,
                     'categories'     => [],
                     'description'    => $wc_product->get_short_description(),
                     'post_date'      => $wc_product->get_date_created() ? $wc_product->get_date_created()->format('Y-m-d H:i:s') : '',

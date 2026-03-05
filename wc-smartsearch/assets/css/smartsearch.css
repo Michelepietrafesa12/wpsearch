@@ -1916,7 +1916,7 @@
     }
 
     .wcss-product-name {
-        font-size: var(--wcss-font-size-xs);
+        font-size: var(--wcss-font-size-sm);
     }
 
     .wcss-product-price .sale,

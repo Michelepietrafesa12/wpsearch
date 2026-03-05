@@ -322,6 +322,7 @@ class WCSS_Engine {
                     pm_sale.meta_value AS sale_price,
                     pm_stock.meta_value AS stock_status,
                     pm_total_sales.meta_value AS total_sales,
+                    t_brand.term_id AS brand_id,
                     t_brand.name AS brand_name,
                     ({$title_match_count}) AS title_word_matches
                 FROM {$wpdb->posts} p
@@ -333,7 +334,7 @@ class WCSS_Engine {
                 LEFT JOIN {$wpdb->postmeta} pm_total_sales ON p.ID = pm_total_sales.post_id AND pm_total_sales.meta_key = 'total_sales'
                 {$brand_join}
                 {$cat_join}
-                WHERE p.post_type IN ('product', 'product_variation')
+                WHERE p.post_type = 'product'
                     AND p.post_status = 'publish'
                     AND ({$any_word_where})
                     {$cat_where}
@@ -392,6 +393,7 @@ class WCSS_Engine {
             'stock_status'   => $row['stock_status'] ?? 'instock',
             'total_sales'    => intval($row['total_sales'] ?? 0),
             'brand'          => $row['brand_name'] ?? '',
+            'brand_id'       => intval($row['brand_id'] ?? 0),
             'categories'     => $cat_data,
             'description'    => $row['post_excerpt'] ?? '',
             'post_date'      => $row['post_date'] ?? '',
@@ -697,7 +699,7 @@ class WCSS_Engine {
                 LEFT JOIN {$wpdb->postmeta} pm_sale ON p.ID = pm_sale.post_id AND pm_sale.meta_key = '_sale_price'
                 LEFT JOIN {$wpdb->postmeta} pm_stock ON p.ID = pm_stock.post_id AND pm_stock.meta_key = '_stock_status'
                 LEFT JOIN {$wpdb->postmeta} pm_total_sales ON p.ID = pm_total_sales.post_id AND pm_total_sales.meta_key = 'total_sales'
-                WHERE p.post_type IN ('product', 'product_variation')
+                WHERE p.post_type = 'product'
                     AND p.post_status = 'publish'
                     AND ({$where})
                 ORDER BY p.post_title ASC
@@ -825,10 +827,10 @@ class WCSS_Engine {
 
         foreach ($products as $product) {
             // Brands
-            if (!empty($product['brand'])) {
-                $brand_key = mb_strtolower($product['brand']);
+            if (!empty($product['brand']) && !empty($product['brand_id'])) {
+                $brand_key = intval($product['brand_id']);
                 if (!isset($brands[$brand_key])) {
-                    $brands[$brand_key] = ['name' => $product['brand'], 'count' => 0];
+                    $brands[$brand_key] = ['id' => $brand_key, 'name' => $product['brand'], 'count' => 0];
                 }
                 $brands[$brand_key]['count']++;
             }

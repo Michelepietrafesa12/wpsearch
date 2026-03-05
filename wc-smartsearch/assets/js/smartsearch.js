@@ -191,7 +191,7 @@
     /* ---------------------------------------------------------------
      * 8. OVERLAY OPEN / CLOSE
      * ------------------------------------------------------------- */
-    var bestsellersLoaded = false;
+    var bestsellersShown = false;
 
     function openOverlay() {
         initOverlay();
@@ -202,31 +202,34 @@
         D.input.focus();
 
         // Show bestsellers when overlay opens with no query
-        if (!bestsellersLoaded && !D.input.value.trim()) {
+        if (!D.input.value.trim()) {
             loadBestsellers();
         }
     }
 
     function loadBestsellers() {
-        bestsellersLoaded = true;
+        if (bestsellersShown) return;
+        bestsellersShown = true;
         showLoader(true);
         ajaxGet('wcss_bestsellers', { limit: 10 }, { useCache: true }).then(function (data) {
             showLoader(false);
             var prods = data.products || [];
-            if (!prods.length) return;
+            if (!prods.length || !overlayOpen) return;
 
             // Only show if user hasn't started typing
             if (D.input.value.trim()) return;
 
-            clearResults();
+            D.grid.innerHTML = '';
             D.resultsHeader.style.display = 'flex';
             D.resultsCount.textContent = (I18N.bestsellers_title || 'I più venduti');
+            D.noResults.style.display = 'none';
 
             prods.forEach(function (p) {
                 D.grid.appendChild(productCard(p));
             });
         }).catch(function () {
             showLoader(false);
+            bestsellersShown = false;
         });
     }
 
@@ -237,6 +240,11 @@
         document.body.classList.remove('wcss-body-no-scroll');
         hideSuggestions();
         debouncedSearch.cancel();
+        clearResults();
+        resetFilters();
+        D.input.value = '';
+        D.clearBtn.classList.remove('visible');
+        bestsellersShown = false;
     }
 
     /* ---------------------------------------------------------------
@@ -814,7 +822,7 @@
             D.input.value = ''; S.query = '';
             D.clearBtn.classList.remove('visible');
             hideSuggestions(); clearResults(); resetFilters(); D.input.focus();
-            bestsellersLoaded = false;
+            bestsellersShown = false;
             loadBestsellers();
         });
 

@@ -168,27 +168,20 @@ class WCSS_Ajax {
             wp_send_json(['success' => true, 'products' => $cached]);
         }
 
-        $args = [
-            'post_type'      => 'product',
-            'posts_per_page' => $limit,
-            'post_status'    => 'publish',
-            'meta_key'       => 'total_sales',
-            'orderby'        => 'meta_value_num',
-            'order'          => 'DESC',
-        ];
+        $wc_products = wc_get_products([
+            'status'   => 'publish',
+            'limit'    => $limit,
+            'orderby'  => 'popularity',
+            'order'    => 'DESC',
+            'visibility' => 'visible',
+        ]);
 
-        $query = new \WP_Query($args);
         $products = [];
 
-        foreach ($query->posts as $post) {
-            $wc_product = wc_get_product($post->ID);
-            if (!$wc_product || !$wc_product->is_visible()) {
-                continue;
-            }
-
+        foreach ($wc_products as $wc_product) {
             $image_id = $wc_product->get_image_id();
             $products[] = [
-                'id'            => $post->ID,
+                'id'            => $wc_product->get_id(),
                 'name'          => $wc_product->get_name(),
                 'url'           => $wc_product->get_permalink(),
                 'image'         => $image_id ? wp_get_attachment_image_url($image_id, 'woocommerce_thumbnail') : wc_placeholder_img_src('woocommerce_thumbnail'),

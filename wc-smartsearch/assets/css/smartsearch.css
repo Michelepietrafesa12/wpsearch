@@ -39,7 +39,7 @@
     --wcss-black: #000000;
 
     /* Overlay */
-    --wcss-overlay-bg: rgba(0, 0, 0, 0.85);
+    --wcss-overlay-bg: #111827;
     --wcss-overlay-z: 99999;
 
     /* Surfaces */
@@ -1765,19 +1765,8 @@
 }
 
 .wcss-results-grid .wcss-product-card {
-    animation: wcss-cardEntrance var(--wcss-transition-slow) ease forwards;
-    opacity: 0;
+    animation: wcss-cardEntrance var(--wcss-transition-slow) ease both;
 }
-
-.wcss-results-grid .wcss-product-card:nth-child(1) { animation-delay: 0.05s; }
-.wcss-results-grid .wcss-product-card:nth-child(2) { animation-delay: 0.1s; }
-.wcss-results-grid .wcss-product-card:nth-child(3) { animation-delay: 0.15s; }
-.wcss-results-grid .wcss-product-card:nth-child(4) { animation-delay: 0.2s; }
-.wcss-results-grid .wcss-product-card:nth-child(5) { animation-delay: 0.25s; }
-.wcss-results-grid .wcss-product-card:nth-child(6) { animation-delay: 0.3s; }
-.wcss-results-grid .wcss-product-card:nth-child(7) { animation-delay: 0.35s; }
-.wcss-results-grid .wcss-product-card:nth-child(8) { animation-delay: 0.4s; }
-.wcss-results-grid .wcss-product-card:nth-child(n+9) { animation-delay: 0.45s; }
 
 /* Pulse for loading button */
 @keyframes wcss-pulse {

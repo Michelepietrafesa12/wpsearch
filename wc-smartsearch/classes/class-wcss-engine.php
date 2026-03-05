@@ -424,6 +424,12 @@ class WCSS_Engine {
     private function score_products($products, $query, $words, $options) {
         $total_words = count($words);
 
+        // Pre-compute Italian variants for all words once
+        $word_variants = [];
+        foreach ($words as $word) {
+            $word_variants[$word] = array_merge([$word], $this->get_italian_variants($word));
+        }
+
         foreach ($products as &$product) {
             $score = 0;
             $name_lower = mb_strtolower($product['name']);
@@ -434,7 +440,7 @@ class WCSS_Engine {
             // Count words matching in name
             $name_word_matches = 0;
             foreach ($words as $word) {
-                $variants = array_merge([$word], $this->get_italian_variants($word));
+                $variants = $word_variants[$word];
                 foreach ($variants as $variant) {
                     if (mb_strpos($name_lower, $variant) !== false) {
                         $name_word_matches++;
@@ -485,7 +491,7 @@ class WCSS_Engine {
             // PRIORITY 2 - Partial match
             else {
                 foreach ($words as $word) {
-                    $variants = array_merge([$word], $this->get_italian_variants($word));
+                    $variants = $word_variants[$word];
                     $found_in_name = false;
                     $found_in_sku = false;
                     $found_in_brand = false;
@@ -614,9 +620,14 @@ class WCSS_Engine {
         // Inject boosted products not in results
         $missing_ids = array_diff($inject_ids, $existing_ids);
         if (!empty($missing_ids)) {
-            foreach ($missing_ids as $pid) {
-                $wc_product = wc_get_product($pid);
-                if (!$wc_product || $wc_product->get_status() !== 'publish') {
+            $wc_products = wc_get_products([
+                'include' => array_values($missing_ids),
+                'status'  => 'publish',
+                'limit'   => count($missing_ids),
+            ]);
+            foreach ($wc_products as $wc_product) {
+                $pid = $wc_product->get_id();
+                if (!isset($boost_map[$pid])) {
                     continue;
                 }
                 $injected = [

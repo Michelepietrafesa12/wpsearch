@@ -58,7 +58,8 @@ class WCSS_Installer {
             PRIMARY KEY (id),
             INDEX idx_product (product_id),
             INDEX idx_active (active),
-            INDEX idx_dates (start_date, end_date)
+            INDEX idx_dates (start_date, end_date),
+            INDEX idx_active_dates (active, start_date, end_date)
         ) {$charset_collate};";
 
         // Banners table
@@ -77,7 +78,8 @@ class WCSS_Installer {
             PRIMARY KEY (id),
             INDEX idx_active (active),
             INDEX idx_position (position),
-            INDEX idx_dates (start_date, end_date)
+            INDEX idx_dates (start_date, end_date),
+            INDEX idx_active_pos_dates (active, position, start_date, end_date)
         ) {$charset_collate};";
 
         // Synonyms table
@@ -102,6 +104,7 @@ class WCSS_Installer {
             PRIMARY KEY (id),
             UNIQUE KEY uk_pair (product_id, correlated_product_id),
             INDEX idx_product (product_id),
+            INDEX idx_correlated (correlated_product_id),
             INDEX idx_score (score)
         ) {$charset_collate};";
 

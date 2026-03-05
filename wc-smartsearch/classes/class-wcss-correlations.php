@@ -194,14 +194,24 @@ class WCSS_Correlations {
      * Format correlated products for frontend display.
      */
     private function format_recommendations($rows) {
-        $products = [];
+        // Build score map and batch-fetch all products in one query
+        $score_map = [];
+        $pids = [];
         foreach ($rows as $row) {
             $pid = intval($row['correlated_product_id']);
-            $wc_product = wc_get_product($pid);
-            if (!$wc_product) {
-                continue;
-            }
+            $pids[] = $pid;
+            $score_map[$pid] = floatval($row['score']);
+        }
 
+        $wc_products = wc_get_products([
+            'include' => $pids,
+            'status'  => 'publish',
+            'limit'   => count($pids),
+        ]);
+
+        $products = [];
+        foreach ($wc_products as $wc_product) {
+            $pid = $wc_product->get_id();
             $products[] = [
                 'id'            => $pid,
                 'name'          => $wc_product->get_name(),
@@ -212,7 +222,7 @@ class WCSS_Correlations {
                 'sale_price'    => $wc_product->get_sale_price() ? floatval($wc_product->get_sale_price()) : 0,
                 'on_sale'       => $wc_product->is_on_sale(),
                 'price_html'    => $wc_product->get_price_html(),
-                'score'         => floatval($row['score']),
+                'score'         => $score_map[$pid] ?? 0,
             ];
         }
         return $products;
@@ -243,15 +253,21 @@ class WCSS_Correlations {
         ];
 
         $query = new WP_Query($args);
-        $products = [];
+        if (empty($query->posts)) {
+            return [];
+        }
 
-        foreach ($query->posts as $post) {
-            $wc_product = wc_get_product($post->ID);
-            if (!$wc_product) {
-                continue;
-            }
+        $post_ids = wp_list_pluck($query->posts, 'ID');
+        $wc_products = wc_get_products([
+            'include' => $post_ids,
+            'status'  => 'publish',
+            'limit'   => count($post_ids),
+        ]);
+
+        $products = [];
+        foreach ($wc_products as $wc_product) {
             $products[] = [
-                'id'            => $post->ID,
+                'id'            => $wc_product->get_id(),
                 'name'          => $wc_product->get_name(),
                 'url'           => $wc_product->get_permalink(),
                 'image'         => wp_get_attachment_image_url($wc_product->get_image_id(), 'woocommerce_thumbnail') ?: wc_placeholder_img_src('woocommerce_thumbnail'),
@@ -282,15 +298,21 @@ class WCSS_Correlations {
         ];
 
         $query = new WP_Query($args);
-        $products = [];
+        if (empty($query->posts)) {
+            return [];
+        }
 
-        foreach ($query->posts as $post) {
-            $wc_product = wc_get_product($post->ID);
-            if (!$wc_product) {
-                continue;
-            }
+        $post_ids = wp_list_pluck($query->posts, 'ID');
+        $wc_products = wc_get_products([
+            'include' => $post_ids,
+            'status'  => 'publish',
+            'limit'   => count($post_ids),
+        ]);
+
+        $products = [];
+        foreach ($wc_products as $wc_product) {
             $products[] = [
-                'id'            => $post->ID,
+                'id'            => $wc_product->get_id(),
                 'name'          => $wc_product->get_name(),
                 'url'           => $wc_product->get_permalink(),
                 'image'         => wp_get_attachment_image_url($wc_product->get_image_id(), 'woocommerce_thumbnail') ?: wc_placeholder_img_src('woocommerce_thumbnail'),

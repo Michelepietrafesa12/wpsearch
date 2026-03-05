@@ -9,6 +9,7 @@
 (function ($) {
     'use strict';
 
+    if (typeof wcss_admin === 'undefined') return;
     var admin = wcss_admin;
 
     /* ======================================================================
@@ -366,9 +367,11 @@
     /* ======================================================================
      * Spinning animation for dashicons-update during correlation calc
      * ==================================================================== */
-    $('<style>')
-        .text('@keyframes wcss-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}.spin{animation:wcss-spin 1s linear infinite;display:inline-block;}')
-        .appendTo('head');
+    if (!document.getElementById('wcss-spin-style')) {
+        $('<style id="wcss-spin-style">')
+            .text('@keyframes wcss-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}.spin{animation:wcss-spin 1s linear infinite;display:inline-block;}')
+            .appendTo('head');
+    }
 
     /* ======================================================================
      * Initialization

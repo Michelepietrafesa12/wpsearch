@@ -559,7 +559,7 @@
 .wcss-results-wrapper {
     flex: 1;
     overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+
     scroll-behavior: smooth;
     background: var(--wcss-white);
 }
@@ -862,7 +862,7 @@
     max-height: calc(100vh - var(--wcss-header-height) - var(--wcss-spacing-xl) * 2);
     overflow-y: auto;
     padding-right: var(--wcss-spacing-md);
-    -webkit-overflow-scrolling: touch;
+
 }
 
 .wcss-filters-sidebar::-webkit-scrollbar {
@@ -992,6 +992,11 @@
     transform: scale(1.2);
 }
 
+.wcss-price-range-slider input[type="range"]::-moz-range-track {
+    background: transparent;
+    border: none;
+}
+
 .wcss-price-range-slider input[type="range"]::-moz-range-thumb {
     width: 20px;
     height: 20px;
@@ -1001,6 +1006,18 @@
     cursor: pointer;
     pointer-events: all;
     box-shadow: var(--wcss-shadow);
+}
+
+.wcss-price-range-slider input[type="range"]::-moz-range-thumb:hover {
+    transform: scale(1.2);
+}
+
+.wcss-price-range-slider input[type="range"]:focus::-webkit-slider-thumb {
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3);
+}
+
+.wcss-price-range-slider input[type="range"]:focus::-moz-range-thumb {
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3);
 }
 
 /* Filter checkboxes */
@@ -1022,9 +1039,10 @@
 
 .wcss-filter-checkbox input[type="checkbox"] {
     position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
+    clip: rect(0, 0, 0, 0);
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
 }
 
 .wcss-filter-checkbox .wcss-checkbox-visual {
@@ -1042,6 +1060,11 @@
 
 .wcss-filter-checkbox:hover .wcss-checkbox-visual {
     border-color: var(--wcss-primary);
+}
+
+.wcss-filter-checkbox input[type="checkbox"]:focus + .wcss-checkbox-visual {
+    border-color: var(--wcss-primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3);
 }
 
 .wcss-filter-checkbox input[type="checkbox"]:checked + .wcss-checkbox-visual {
@@ -1251,7 +1274,7 @@
     flex: 1;
     overflow-y: auto;
     padding: var(--wcss-spacing-md) var(--wcss-spacing-lg);
-    -webkit-overflow-scrolling: touch;
+
 }
 
 .wcss-mobile-filters-footer {
@@ -1425,7 +1448,7 @@
     gap: var(--wcss-spacing-md);
     overflow-x: auto;
     scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
+
     scrollbar-width: none;
     padding-bottom: var(--wcss-spacing-sm);
 }

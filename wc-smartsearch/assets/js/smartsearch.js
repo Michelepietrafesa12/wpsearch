@@ -207,7 +207,7 @@
     }
 
     function closeOverlay() {
-        if (!overlayOpen) return;
+        if (!overlayOpen || !overlayReady) return;
         overlayOpen = false;
         D.overlay.classList.remove('active');
         document.body.classList.remove('wcss-body-no-scroll');
@@ -281,6 +281,9 @@
             if (e.name === 'AbortError') return;
             S.loading = false;
             showLoader(false);
+            if (!append) {
+                D.noResults.style.display = 'flex';
+            }
         });
     }
 

@@ -233,7 +233,8 @@ class WCSS_Admin {
     public function delete_boost() {
         check_ajax_referer('wcss_admin_nonce', 'nonce');
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error();
+            wp_send_json_error(['message' => 'Unauthorized']);
+            return;
         }
 
         global $wpdb;
@@ -248,7 +249,8 @@ class WCSS_Admin {
     public function toggle_boost() {
         check_ajax_referer('wcss_admin_nonce', 'nonce');
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error();
+            wp_send_json_error(['message' => 'Unauthorized']);
+            return;
         }
 
         global $wpdb;
@@ -267,7 +269,8 @@ class WCSS_Admin {
     public function save_banner() {
         check_ajax_referer('wcss_admin_nonce', 'nonce');
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error();
+            wp_send_json_error(['message' => 'Unauthorized']);
+            return;
         }
 
         global $wpdb;
@@ -311,7 +314,8 @@ class WCSS_Admin {
     public function delete_banner() {
         check_ajax_referer('wcss_admin_nonce', 'nonce');
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error();
+            wp_send_json_error(['message' => 'Unauthorized']);
+            return;
         }
 
         global $wpdb;
@@ -326,7 +330,8 @@ class WCSS_Admin {
     public function toggle_banner() {
         check_ajax_referer('wcss_admin_nonce', 'nonce');
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error();
+            wp_send_json_error(['message' => 'Unauthorized']);
+            return;
         }
 
         global $wpdb;
@@ -345,7 +350,8 @@ class WCSS_Admin {
     public function save_synonym() {
         check_ajax_referer('wcss_admin_nonce', 'nonce');
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error();
+            wp_send_json_error(['message' => 'Unauthorized']);
+            return;
         }
 
         global $wpdb;
@@ -378,7 +384,8 @@ class WCSS_Admin {
     public function delete_synonym() {
         check_ajax_referer('wcss_admin_nonce', 'nonce');
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error();
+            wp_send_json_error(['message' => 'Unauthorized']);
+            return;
         }
 
         global $wpdb;
@@ -393,7 +400,8 @@ class WCSS_Admin {
     public function calculate_correlations() {
         check_ajax_referer('wcss_admin_nonce', 'nonce');
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error();
+            wp_send_json_error(['message' => 'Unauthorized']);
+            return;
         }
 
         $options = wcss_get_options();
@@ -412,7 +420,8 @@ class WCSS_Admin {
     public function flush_cache() {
         check_ajax_referer('wcss_admin_nonce', 'nonce');
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error();
+            wp_send_json_error(['message' => 'Unauthorized']);
+            return;
         }
 
         $cache = new WCSS_Cache();
@@ -427,7 +436,8 @@ class WCSS_Admin {
     public function search_products() {
         check_ajax_referer('wcss_admin_nonce', 'nonce');
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error();
+            wp_send_json_error(['message' => 'Unauthorized']);
+            return;
         }
 
         $term = isset($_GET['term']) ? sanitize_text_field(wp_unslash($_GET['term'])) : '';

@@ -40,15 +40,17 @@ class WCSS_Correlations {
             ";
         } else {
             $order_items_sql = "
-                SELECT oi1.product_id AS product_a, oi2.product_id AS product_b, COUNT(DISTINCT p.ID) AS shared_orders
+                SELECT oim1.meta_value+0 AS product_a, oim2.meta_value+0 AS product_b, COUNT(DISTINCT p.ID) AS shared_orders
                 FROM {$wpdb->posts} p
-                INNER JOIN {$wpdb->prefix}wc_order_product_lookup oi1 ON p.ID = oi1.order_id
-                INNER JOIN {$wpdb->prefix}wc_order_product_lookup oi2 ON p.ID = oi2.order_id
+                INNER JOIN {$wpdb->prefix}woocommerce_order_items oi1 ON p.ID = oi1.order_id AND oi1.order_item_type = 'line_item'
+                INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta oim1 ON oi1.order_item_id = oim1.order_item_id AND oim1.meta_key = '_product_id'
+                INNER JOIN {$wpdb->prefix}woocommerce_order_items oi2 ON p.ID = oi2.order_id AND oi2.order_item_type = 'line_item'
+                INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta oim2 ON oi2.order_item_id = oim2.order_item_id AND oim2.meta_key = '_product_id'
                 WHERE p.post_type = 'shop_order'
                   AND p.post_status IN ('wc-completed', 'wc-processing')
                   AND p.post_date >= %s
-                  AND oi1.product_id < oi2.product_id
-                GROUP BY oi1.product_id, oi2.product_id
+                  AND oim1.meta_value+0 < oim2.meta_value+0
+                GROUP BY product_a, product_b
                 HAVING shared_orders >= %d
             ";
         }
@@ -164,7 +166,6 @@ class WCSS_Correlations {
 
         $ids = array_map('intval', $product_ids);
         $placeholders = implode(',', array_fill(0, count($ids), '%d'));
-        $exclude = implode(',', $ids);
 
         $correlated = $wpdb->get_results($wpdb->prepare(
             "SELECT c.correlated_product_id, SUM(c.score) as score, MAX(c.order_count) as order_count,
@@ -211,7 +212,6 @@ class WCSS_Correlations {
                 'sale_price'    => $wc_product->get_sale_price() ? floatval($wc_product->get_sale_price()) : 0,
                 'on_sale'       => $wc_product->is_on_sale(),
                 'price_html'    => $wc_product->get_price_html(),
-                'add_to_cart'   => $wc_product->is_purchasable() && $wc_product->is_in_stock(),
                 'score'         => floatval($row['score']),
             ];
         }
@@ -223,7 +223,7 @@ class WCSS_Correlations {
      */
     private function get_category_fallback($product_id, $limit = 12) {
         $terms = wp_get_post_terms($product_id, 'product_cat', ['fields' => 'ids']);
-        if (empty($terms)) {
+        if (is_wp_error($terms) || empty($terms)) {
             return [];
         }
 
@@ -260,7 +260,6 @@ class WCSS_Correlations {
                 'sale_price'    => $wc_product->get_sale_price() ? floatval($wc_product->get_sale_price()) : 0,
                 'on_sale'       => $wc_product->is_on_sale(),
                 'price_html'    => $wc_product->get_price_html(),
-                'add_to_cart'   => $wc_product->is_purchasable() && $wc_product->is_in_stock(),
                 'score'         => 0,
             ];
         }
@@ -300,7 +299,6 @@ class WCSS_Correlations {
                 'sale_price'    => $wc_product->get_sale_price() ? floatval($wc_product->get_sale_price()) : 0,
                 'on_sale'       => $wc_product->is_on_sale(),
                 'price_html'    => $wc_product->get_price_html(),
-                'add_to_cart'   => $wc_product->is_purchasable() && $wc_product->is_in_stock(),
                 'score'         => 0,
             ];
         }

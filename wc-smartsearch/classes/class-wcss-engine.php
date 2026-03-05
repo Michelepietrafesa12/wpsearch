@@ -534,7 +534,8 @@ class WCSS_Engine {
             }
 
             // BONUS: New/recent product
-            $days_old = (time() - strtotime($product['post_date'])) / 86400;
+            $post_time = !empty($product['post_date']) ? strtotime($product['post_date']) : false;
+            $days_old = $post_time ? (time() - $post_time) / 86400 : PHP_INT_MAX;
             if ($days_old < 7) {
                 $score += 15;
             } elseif ($days_old < 30) {

@@ -152,6 +152,7 @@ function wcss_enqueue_assets() {
 
     wp_localize_script('wcss-frontend', 'wcss_params', [
         'ajax_url'           => admin_url('admin-ajax.php'),
+        'wc_ajax_url'        => home_url('/?wc-ajax=%%endpoint%%'),
         'nonce'              => wp_create_nonce('wcss_nonce'),
         'min_chars'          => intval($options['min_chars'] ?? 2),
         'max_results'        => intval($options['max_results'] ?? 200),

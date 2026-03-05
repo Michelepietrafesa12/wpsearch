@@ -349,7 +349,7 @@
      * ------------------------------------------------------------- */
     function productCard(p) {
         var card = el('div', 'wcss-product-card', { 'data-product-id': p.id });
-        var hasSale = p.sale_price && parseFloat(p.sale_price) < parseFloat(p.price);
+        var hasSale = p.on_sale || (p.sale_price && p.regular_price && parseFloat(p.sale_price) > 0 && parseFloat(p.sale_price) < parseFloat(p.regular_price));
 
         // Image container
         var imgWrap = el('a', 'wcss-product-image', { href: safeUrl(p.url) });
@@ -377,7 +377,7 @@
 
         var pw = el('div', 'wcss-product-price');
         if (hasSale) {
-            var orig = el('span', 'original'); orig.textContent = formatPrice(p.price);
+            var orig = el('span', 'original'); orig.textContent = formatPrice(p.regular_price);
             var sale = el('span', 'sale');     sale.textContent = formatPrice(p.sale_price);
             pw.append(orig, sale);
         } else if (p.price) {
@@ -404,7 +404,7 @@
         var orig = btn.textContent;
 
         // Use WooCommerce's wc-ajax endpoint (not admin-ajax.php)
-        var url = location.origin + '/?wc-ajax=add_to_cart';
+        var url = P.wc_ajax_url ? P.wc_ajax_url.replace('%%endpoint%%', 'add_to_cart') : AJAX_URL.replace(/\/wp-admin\/admin-ajax\.php$/, '/') + '?wc-ajax=add_to_cart';
 
         fetch(url, {
             method: 'POST', credentials: 'same-origin',
@@ -432,13 +432,15 @@
         banners.forEach(function (b) {
             var wrap = el('div', 'wcss-banner');
             var content;
-            if (b.image) {
-                content = el('img', '', { src: b.image, alt: b.title || '', loading: 'lazy' });
+            var imgUrl = b.image_url || b.image || '';
+            var linkUrl = b.link_url || b.url || '';
+            if (imgUrl) {
+                content = el('img', '', { src: imgUrl, alt: b.title || '', loading: 'lazy' });
             } else if (b.html) {
                 content = el('div'); content.textContent = b.html;
             }
-            if (b.url && content) {
-                var a = el('a', '', { href: safeUrl(b.url), target: b.new_tab ? '_blank' : '_self', rel: 'noopener' });
+            if (linkUrl && content) {
+                var a = el('a', '', { href: safeUrl(linkUrl), target: b.new_tab ? '_blank' : '_self', rel: 'noopener' });
                 a.appendChild(content); wrap.appendChild(a);
             } else if (content) {
                 wrap.appendChild(content);
@@ -667,7 +669,7 @@
 
             var textWrap = el('span', 'wcss-suggestion-item-text');
             var label = el('span', 'wcss-suggestion-item-label');
-            label.textContent = item.text || item.name || '';
+            label.textContent = item.query || item.text || item.name || '';
             textWrap.appendChild(label);
 
             if (item.meta) {
@@ -716,7 +718,7 @@
     function selectSuggestion(idx) {
         var item = _sugItems[idx];
         if (!item) return;
-        var text = item.text || item.name || '';
+        var text = item.query || item.text || item.name || '';
         D.input.value = text; S.query = text;
         hideSuggestions(); executeSearch(false);
     }
@@ -869,7 +871,7 @@
 
         _card: function (p, withCart) {
             var card = el('div', 'wcss-recommendation-card');
-            var hasSale = p.sale_price && parseFloat(p.sale_price) < parseFloat(p.price);
+            var hasSale = p.on_sale || (p.sale_price && p.regular_price && parseFloat(p.sale_price) > 0 && parseFloat(p.sale_price) < parseFloat(p.regular_price));
 
             var imgLink = el('a', 'wcss-product-image', { href: safeUrl(p.url) });
             if (p.image) imgLink.appendChild(el('img', '', { src: p.image, alt: p.name || '', loading: 'lazy' }));
@@ -882,7 +884,7 @@
 
             var pw = el('div', 'wcss-product-price');
             if (hasSale) {
-                var orig = el('span', 'original'); orig.textContent = formatPrice(p.price);
+                var orig = el('span', 'original'); orig.textContent = formatPrice(p.regular_price);
                 var sale = el('span', 'sale');     sale.textContent = formatPrice(p.sale_price);
                 pw.append(orig, sale);
             } else if (p.price) {

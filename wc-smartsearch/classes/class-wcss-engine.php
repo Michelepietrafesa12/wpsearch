@@ -231,13 +231,30 @@ class WCSS_Engine {
         global $wpdb;
 
         $max_results = intval($options['max_results'] ?? 200);
-        $prepare_values = [];
+
+        // Separate arrays for values in SQL order: SELECT, WHERE, filters, LIMIT
+        $select_values = [];
+        $where_values = [];
+        $filter_values = [];
 
         // Brand join
         $brand_join = "LEFT JOIN {$wpdb->term_relationships} tr_brand ON p.ID = tr_brand.object_id
                        LEFT JOIN {$wpdb->term_taxonomy} tt_brand ON tr_brand.term_taxonomy_id = tt_brand.term_taxonomy_id
                            AND tt_brand.taxonomy IN ('pa_brand', 'product_brand', 'pa_marca')
                        LEFT JOIN {$wpdb->terms} t_brand ON tt_brand.term_id = t_brand.term_id";
+
+        // Count how many word-groups match in the title (for pre-ordering) - SELECT clause (comes first in SQL)
+        $word_match_cases = [];
+        foreach ($expanded_words as $original => $variants) {
+            $title_or = [];
+            foreach ($variants as $variant) {
+                $like = '%' . $wpdb->esc_like($variant) . '%';
+                $title_or[] = "p.post_title LIKE %s";
+                $select_values[] = $like;
+            }
+            $word_match_cases[] = 'CASE WHEN (' . implode(' OR ', $title_or) . ') THEN 1 ELSE 0 END';
+        }
+        $title_match_count = implode(' + ', $word_match_cases);
 
         // Build WHERE conditions: each word must match in at least ONE field
         $where_conditions = [];
@@ -247,25 +264,12 @@ class WCSS_Engine {
                 $like = '%' . $wpdb->esc_like($variant) . '%';
                 foreach (['p.post_title', 'p.post_content', 'p.post_excerpt', 'pm_sku.meta_value', 't_brand.name'] as $col) {
                     $word_or[] = "{$col} LIKE %s";
-                    $prepare_values[] = $like;
+                    $where_values[] = $like;
                 }
             }
             $where_conditions[] = '(' . implode(' OR ', $word_or) . ')';
         }
         $any_word_where = implode(' OR ', $where_conditions);
-
-        // Count how many word-groups match in the title (for pre-ordering)
-        $word_match_cases = [];
-        foreach ($expanded_words as $original => $variants) {
-            $title_or = [];
-            foreach ($variants as $variant) {
-                $like = '%' . $wpdb->esc_like($variant) . '%';
-                $title_or[] = "p.post_title LIKE %s";
-                $prepare_values[] = $like;
-            }
-            $word_match_cases[] = 'CASE WHEN (' . implode(' OR ', $title_or) . ') THEN 1 ELSE 0 END';
-        }
-        $title_match_count = implode(' + ', $word_match_cases);
 
         // Category filter
         $cat_join = '';
@@ -278,7 +282,7 @@ class WCSS_Engine {
                              AND tt_cat.taxonomy = 'product_cat'";
             $cat_where = " AND tt_cat.term_id IN ({$cat_placeholders})";
             foreach ($cat_ids as $cid) {
-                $prepare_values[] = $cid;
+                $filter_values[] = $cid;
             }
         }
 
@@ -289,7 +293,7 @@ class WCSS_Engine {
             $mfr_placeholders = implode(',', array_fill(0, count($mfr_ids), '%d'));
             $mfr_where = " AND t_brand.term_id IN ({$mfr_placeholders})";
             foreach ($mfr_ids as $mid) {
-                $prepare_values[] = $mid;
+                $filter_values[] = $mid;
             }
         }
 
@@ -297,15 +301,15 @@ class WCSS_Engine {
         $price_where = '';
         if (!empty($args['price_min'])) {
             $price_where .= " AND CAST(pm_price.meta_value AS DECIMAL(10,2)) >= %f";
-            $prepare_values[] = floatval($args['price_min']);
+            $filter_values[] = floatval($args['price_min']);
         }
         if (!empty($args['price_max'])) {
             $price_where .= " AND CAST(pm_price.meta_value AS DECIMAL(10,2)) <= %f";
-            $prepare_values[] = floatval($args['price_max']);
+            $filter_values[] = floatval($args['price_max']);
         }
 
-        // LIMIT
-        $prepare_values[] = $max_results;
+        // Merge values in SQL placeholder order: SELECT → WHERE → filters → LIMIT
+        $prepare_values = array_merge($select_values, $where_values, $filter_values, [$max_results]);
 
         $sql = "SELECT DISTINCT p.ID,
                     p.post_title,

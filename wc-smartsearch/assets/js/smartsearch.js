@@ -665,7 +665,12 @@
             if (item.type) row.classList.add('wcss-suggestion-item--' + item.type);
 
             var icon = el('span', 'wcss-suggestion-item-icon');
-            icon.innerHTML = _sugTypeIcons[item.type] || _sugDefaultIcon;
+            if (item.type === 'product' && item.image) {
+                icon.innerHTML = '';
+                icon.appendChild(el('img', '', { src: item.image, alt: item.query || '', loading: 'lazy' }));
+            } else {
+                icon.innerHTML = _sugTypeIcons[item.type] || _sugDefaultIcon;
+            }
 
             var textWrap = el('span', 'wcss-suggestion-item-text');
             var label = el('span', 'wcss-suggestion-item-label');
@@ -681,9 +686,18 @@
             row.append(icon, textWrap);
 
             if (item.type === 'product' && item.price) {
-                var price = el('span', 'wcss-suggestion-price');
-                price.textContent = formatPrice(item.price);
-                row.appendChild(price);
+                var pw = el('span', 'wcss-suggestion-price');
+                var hasSale = item.on_sale || (item.sale_price && item.regular_price && parseFloat(item.sale_price) > 0 && parseFloat(item.sale_price) < parseFloat(item.regular_price));
+                if (hasSale) {
+                    var orig = el('span', 'wcss-suggestion-price-original');
+                    orig.textContent = formatPrice(item.regular_price);
+                    var sale = el('span', 'wcss-suggestion-price-sale');
+                    sale.textContent = formatPrice(item.sale_price);
+                    pw.append(orig, sale);
+                } else {
+                    pw.textContent = formatPrice(item.price);
+                }
+                row.appendChild(pw);
             }
 
             row.addEventListener('mousedown', function (e) { e.preventDefault(); selectSuggestion(i); });
@@ -718,6 +732,14 @@
     function selectSuggestion(idx) {
         var item = _sugItems[idx];
         if (!item) return;
+
+        // If it's a product with a URL, navigate directly to it
+        if (item.type === 'product' && item.url) {
+            hideSuggestions();
+            window.location.href = item.url;
+            return;
+        }
+
         var text = item.query || item.text || item.name || '';
         D.input.value = text; S.query = text;
         hideSuggestions(); executeSearch(false);

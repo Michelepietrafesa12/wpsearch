@@ -439,7 +439,7 @@
 .wcss-suggestion-item {
     display: flex;
     align-items: center;
-    gap: var(--wcss-spacing-sm);
+    gap: var(--wcss-spacing-md);
     padding: var(--wcss-spacing-sm) var(--wcss-spacing-md);
     color: var(--wcss-text-primary);
     text-decoration: none;
@@ -460,12 +460,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
     flex-shrink: 0;
     border-radius: var(--wcss-radius);
     background: var(--wcss-gray-100);
     color: var(--wcss-text-muted);
+    overflow: hidden;
 }
 
 .wcss-suggestion-item-icon svg {
@@ -522,9 +523,26 @@
 /* Product suggestion with price */
 .wcss-suggestion-item--product .wcss-suggestion-price {
     flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1px;
     font-size: var(--wcss-font-size-sm);
     font-weight: 600;
     color: var(--wcss-accent);
+}
+
+.wcss-suggestion-price-original {
+    font-size: var(--wcss-font-size-xs);
+    font-weight: 400;
+    color: var(--wcss-text-muted);
+    text-decoration: line-through;
+}
+
+.wcss-suggestion-price-sale {
+    font-size: var(--wcss-font-size-sm);
+    font-weight: 700;
+    color: var(--wcss-danger);
 }
 
 /* Brand suggestion */
@@ -543,6 +561,7 @@
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
+    background: var(--wcss-gray-900);
 }
 
 .wcss-results-container {

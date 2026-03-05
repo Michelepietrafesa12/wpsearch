@@ -728,22 +728,41 @@ class WCSS_Engine {
 
         $like_contain = '%' . $wpdb->esc_like($query) . '%';
 
-        // Product names matching
-        $product_names = $wpdb->get_col($wpdb->prepare(
-            "SELECT DISTINCT post_title FROM {$wpdb->posts}
-             WHERE post_type = 'product' AND post_status = 'publish'
-               AND post_title LIKE %s
-             ORDER BY post_title ASC
-             LIMIT 5",
+        // Product matches with image, price, and URL
+        $products = $wpdb->get_results($wpdb->prepare(
+            "SELECT p.ID, p.post_title,
+                    pm_price.meta_value AS price,
+                    pm_regular.meta_value AS regular_price,
+                    pm_sale.meta_value AS sale_price
+             FROM {$wpdb->posts} p
+             LEFT JOIN {$wpdb->postmeta} pm_price ON p.ID = pm_price.post_id AND pm_price.meta_key = '_price'
+             LEFT JOIN {$wpdb->postmeta} pm_regular ON p.ID = pm_regular.post_id AND pm_regular.meta_key = '_regular_price'
+             LEFT JOIN {$wpdb->postmeta} pm_sale ON p.ID = pm_sale.post_id AND pm_sale.meta_key = '_sale_price'
+             WHERE p.post_type = 'product' AND p.post_status = 'publish'
+               AND p.post_title LIKE %s
+             ORDER BY p.post_title ASC
+             LIMIT 6",
             $like_contain
-        ));
+        ), ARRAY_A);
 
-        foreach ($product_names as $name) {
+        foreach ($products as $row) {
+            $product_id = intval($row['ID']);
+            $thumbnail_id = get_post_thumbnail_id($product_id);
+            $image_url = $thumbnail_id ? wp_get_attachment_image_url($thumbnail_id, 'thumbnail') : wc_placeholder_img_src('thumbnail');
+
+            $price = floatval($row['price'] ?? 0);
+            $regular_price = floatval($row['regular_price'] ?? 0);
+            $sale_price = !empty($row['sale_price']) ? floatval($row['sale_price']) : 0;
+
             $suggestions[] = [
-                'query'   => $name,
-                'count'   => 0,
-                'results' => 0,
-                'type'    => 'product',
+                'query'         => $row['post_title'],
+                'type'          => 'product',
+                'image'         => $image_url,
+                'url'           => get_permalink($product_id),
+                'price'         => $price,
+                'regular_price' => $regular_price,
+                'sale_price'    => $sale_price,
+                'on_sale'       => $sale_price > 0 && $sale_price < $regular_price,
             ];
         }
 
@@ -761,8 +780,6 @@ class WCSS_Engine {
         foreach ($brands as $brand) {
             $suggestions[] = [
                 'query'   => $brand,
-                'count'   => 0,
-                'results' => 0,
                 'type'    => 'brand',
             ];
         }

@@ -797,7 +797,7 @@
 }
 
 .wcss-product-brand {
-    font-size: var(--wcss-font-size-sm);
+    font-size: var(--wcss-font-size-base);
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -806,7 +806,7 @@
 }
 
 .wcss-product-name {
-    font-size: var(--wcss-font-size-base);
+    font-size: var(--wcss-font-size-lg);
     font-weight: 600;
     color: var(--wcss-text-primary);
     line-height: 1.4;
@@ -831,20 +831,20 @@
 }
 
 .wcss-product-price .sale {
-    font-size: var(--wcss-font-size-lg);
+    font-size: var(--wcss-font-size-xl);
     font-weight: 700;
     color: var(--wcss-danger);
 }
 
 .wcss-product-price .original {
-    font-size: var(--wcss-font-size-sm);
+    font-size: var(--wcss-font-size-base);
     font-weight: 400;
     color: var(--wcss-text-muted);
     text-decoration: line-through;
 }
 
 .wcss-product-price .regular {
-    font-size: var(--wcss-font-size-lg);
+    font-size: var(--wcss-font-size-xl);
     font-weight: 700;
     color: var(--wcss-text-primary);
 }
@@ -1868,20 +1868,20 @@
     }
 
     .wcss-product-name {
-        font-size: var(--wcss-font-size-sm);
+        font-size: var(--wcss-font-size-base);
     }
 
     .wcss-product-price .sale,
     .wcss-product-price .regular {
-        font-size: var(--wcss-font-size-base);
+        font-size: var(--wcss-font-size-lg);
     }
 
     .wcss-product-price .original {
-        font-size: var(--wcss-font-size-xs);
+        font-size: var(--wcss-font-size-sm);
     }
 
     .wcss-product-brand {
-        font-size: 0.65rem;
+        font-size: var(--wcss-font-size-sm);
     }
 
     .wcss-results-header {

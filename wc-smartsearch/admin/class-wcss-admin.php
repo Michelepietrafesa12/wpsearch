@@ -109,12 +109,31 @@ class WCSS_Admin {
             ? sanitize_text_field(wp_unslash($_GET['tab']))
             : 'settings';
 
-        // Get data for each tab
-        $boosts = $this->get_boosts();
-        $banners = $this->get_banners();
-        $synonyms = $this->get_synonyms();
-        $correlations = new WCSS_Correlations();
-        $corr_stats = $correlations->get_stats();
+        // Get data only for the active tab to reduce DB load
+        $boosts = [];
+        $banners = [];
+        $synonyms = [];
+        $corr_stats = ['total_correlations' => 0, 'total_products' => 0, 'avg_score' => 0, 'last_update' => __('Mai calcolato', 'wc-smartsearch')];
+
+        try {
+            switch ($active_tab) {
+                case 'boosting':
+                    $boosts = $this->get_boosts();
+                    break;
+                case 'banners':
+                    $banners = $this->get_banners();
+                    break;
+                case 'synonyms':
+                    $synonyms = $this->get_synonyms();
+                    break;
+                case 'correlations':
+                    $correlations = new WCSS_Correlations();
+                    $corr_stats = $correlations->get_stats();
+                    break;
+            }
+        } catch (\Throwable $e) {
+            error_log('WC SmartSearch admin error: ' . $e->getMessage());
+        }
 
         include WCSS_PLUGIN_DIR . 'admin/views/dashboard.php';
     }

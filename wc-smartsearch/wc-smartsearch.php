@@ -146,10 +146,14 @@ function wcss_enqueue_assets() {
         $product_id = get_the_ID();
     }
 
-    if (function_exists('WC') && WC()->cart) {
-        foreach (WC()->cart->get_cart() as $item) {
-            $cart_product_ids[] = $item['product_id'];
+    try {
+        if (function_exists('WC') && WC()->cart) {
+            foreach (WC()->cart->get_cart() as $item) {
+                $cart_product_ids[] = $item['product_id'];
+            }
         }
+    } catch (\Throwable $e) {
+        // Fail-safe: never break page rendering due to cart access
     }
 
     wp_localize_script('wcss-frontend', 'wcss_params', [

@@ -1252,10 +1252,12 @@
     transform: translateX(-100%);
     transition: transform var(--wcss-transition-slow) cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
+    visibility: hidden;
 }
 
 .wcss-mobile-filters.active {
     transform: translateX(0);
+    visibility: visible;
 }
 
 .wcss-mobile-filters-header {

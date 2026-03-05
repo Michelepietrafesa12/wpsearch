@@ -239,6 +239,7 @@
         D.overlay.classList.remove('active');
         document.body.classList.remove('wcss-body-no-scroll');
         hideSuggestions();
+        Filters.closeMobile();
         debouncedSearch.cancel();
         clearResults();
         resetFilters();

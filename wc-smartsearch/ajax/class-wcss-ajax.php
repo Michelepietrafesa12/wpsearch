@@ -151,4 +151,60 @@ class WCSS_Ajax {
 
         wp_send_json(['success' => true, 'products' => []]);
     }
+
+    /**
+     * Handle bestsellers request (shown when overlay opens with no query).
+     * GET: action=wcss_bestsellers&limit={10}
+     */
+    public function handle_bestsellers() {
+        check_ajax_referer('wcss_nonce', 'nonce');
+
+        $limit = isset($_GET['limit']) ? min(absint($_GET['limit']), 20) : 10;
+
+        $cache = new WCSS_Cache();
+        $cached = $cache->get('bestsellers_' . $limit);
+
+        if ($cached !== false) {
+            wp_send_json(['success' => true, 'products' => $cached]);
+        }
+
+        $args = [
+            'post_type'      => 'product',
+            'posts_per_page' => $limit,
+            'post_status'    => 'publish',
+            'meta_key'       => 'total_sales',
+            'orderby'        => 'meta_value_num',
+            'order'          => 'DESC',
+        ];
+
+        $query = new \WP_Query($args);
+        $products = [];
+
+        foreach ($query->posts as $post) {
+            $wc_product = wc_get_product($post->ID);
+            if (!$wc_product || !$wc_product->is_visible()) {
+                continue;
+            }
+
+            $image_id = $wc_product->get_image_id();
+            $products[] = [
+                'id'            => $post->ID,
+                'name'          => $wc_product->get_name(),
+                'url'           => $wc_product->get_permalink(),
+                'image'         => $image_id ? wp_get_attachment_image_url($image_id, 'woocommerce_thumbnail') : wc_placeholder_img_src('woocommerce_thumbnail'),
+                'price'         => floatval($wc_product->get_price()),
+                'regular_price' => floatval($wc_product->get_regular_price()),
+                'sale_price'    => $wc_product->get_sale_price() ? floatval($wc_product->get_sale_price()) : 0,
+                'on_sale'       => $wc_product->is_on_sale(),
+                'price_html'    => $wc_product->get_price_html(),
+                'add_to_cart'   => $wc_product->is_purchasable() && $wc_product->is_in_stock(),
+                'brand'         => '',
+                'brand_id'      => 0,
+            ];
+        }
+
+        $cache->set('bestsellers_' . $limit, $products, 600);
+
+        wp_send_json(['success' => true, 'products' => $products]);
+    }
 }

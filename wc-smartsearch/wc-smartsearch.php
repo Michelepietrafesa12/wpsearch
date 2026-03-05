@@ -105,6 +105,8 @@ function wcss_init() {
     add_action('wp_ajax_nopriv_wcss_banners', [$ajax, 'handle_banners']);
     add_action('wp_ajax_wcss_recommendations', [$ajax, 'handle_recommendations']);
     add_action('wp_ajax_nopriv_wcss_recommendations', [$ajax, 'handle_recommendations']);
+    add_action('wp_ajax_wcss_bestsellers', [$ajax, 'handle_bestsellers']);
+    add_action('wp_ajax_nopriv_wcss_bestsellers', [$ajax, 'handle_bestsellers']);
 
 }
 add_action('plugins_loaded', 'wcss_init');
@@ -181,6 +183,7 @@ function wcss_enqueue_assets() {
             'results_count'      => __('%d risultati', 'wc-smartsearch'),
             'show_filters'       => __('Mostra filtri', 'wc-smartsearch'),
             'hide_filters'       => __('Nascondi filtri', 'wc-smartsearch'),
+            'bestsellers_title'  => __('I più venduti', 'wc-smartsearch'),
         ],
     ]);
 }

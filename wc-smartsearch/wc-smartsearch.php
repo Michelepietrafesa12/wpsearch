@@ -136,24 +136,27 @@ function wcss_enqueue_assets() {
         WCSS_PLUGIN_URL . 'assets/js/smartsearch.js',
         [],
         WCSS_VERSION,
-        true
+        ['in_footer' => true, 'strategy' => 'defer']
     );
 
     $product_id = 0;
     $cart_product_ids = [];
 
-    if (is_product()) {
-        $product_id = get_the_ID();
-    }
-
-    try {
-        if (function_exists('WC') && WC()->cart) {
-            foreach (WC()->cart->get_cart() as $item) {
-                $cart_product_ids[] = $item['product_id'];
-            }
+    // Only compute product/cart data on pages that actually use recommendations
+    if (!empty($options['recommendations_enabled'])) {
+        if (is_product()) {
+            $product_id = get_the_ID();
         }
-    } catch (\Throwable $e) {
-        // Fail-safe: never break page rendering due to cart access
+
+        try {
+            if (is_cart() && function_exists('WC') && WC()->cart) {
+                foreach (WC()->cart->get_cart() as $item) {
+                    $cart_product_ids[] = $item['product_id'];
+                }
+            }
+        } catch (\Throwable $e) {
+            // Fail-safe: never break page rendering due to cart access
+        }
     }
 
     wp_localize_script('wcss-frontend', 'wcss_params', [

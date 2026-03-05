@@ -47,12 +47,6 @@
         return n;
     }
 
-    function esc(s) {
-        var d = document.createElement('div');
-        d.appendChild(document.createTextNode(s || ''));
-        return d.innerHTML;
-    }
-
     function formatPrice(v) {
         var n = parseFloat(v);
         return isNaN(n) ? '' : CURRENCY + n.toFixed(2);
@@ -126,29 +120,8 @@
             .then(function (d) { if (opts.useCache !== false) cacheSet(action, params, d); return d; });
     }
 
-    function ajaxPost(action, body, opts) {
-        opts = opts || {};
-        var url = new URL(AJAX_URL, location.origin);
-        url.searchParams.set('action', action);
-        url.searchParams.set('nonce', NONCE);
-        var formParts = [];
-        Object.keys(body).forEach(function (k) {
-            if (body[k] !== '' && body[k] != null) formParts.push(encodeURIComponent(k) + '=' + encodeURIComponent(body[k]));
-        });
-        return fetch(url.toString(), {
-            method: 'POST', credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: formParts.join('&'), signal: opts.signal
-        }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
-    }
-
     /* ---------------------------------------------------------------
-     * 6. ANALYTICS (reserved)
-     * ------------------------------------------------------------- */
-
-
-    /* ---------------------------------------------------------------
-     * 7. OVERLAY DOM (find existing template elements)
+     * 6. OVERLAY DOM (find existing template elements)
      * ------------------------------------------------------------- */
     var overlayReady = false;
     var overlayOpen  = false;
@@ -902,7 +875,7 @@
 
                 // Slider
                 var slider = el('div', 'wcss-recommendations-slider');
-                prods.forEach(function (p) { slider.appendChild(Recs._card(p, withCart)); });
+                prods.forEach(function (p) { slider.appendChild(Recs._card(p)); });
 
                 var scrollAmt = function () { return slider.clientWidth * 0.7; };
                 prev.addEventListener('click', function () { slider.scrollBy({ left: -scrollAmt(), behavior: 'smooth' }); });
@@ -912,7 +885,7 @@
             }).catch(function () { /* silent */ });
         },
 
-        _card: function (p, withCart) {
+        _card: function (p) {
             var card = el('div', 'wcss-recommendation-card');
             var hasSale = p.on_sale || (p.sale_price && p.regular_price && parseFloat(p.sale_price) > 0 && parseFloat(p.sale_price) < parseFloat(p.regular_price));
 

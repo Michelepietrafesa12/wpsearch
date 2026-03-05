@@ -323,7 +323,6 @@ class WCSS_Engine {
 
         $sql = "SELECT DISTINCT p.ID,
                     p.post_title,
-                    p.post_content,
                     p.post_excerpt,
                     p.post_date,
                     pm_sku.meta_value AS sku,
@@ -701,7 +700,6 @@ class WCSS_Engine {
 
         $sql = "SELECT DISTINCT p.ID,
                     p.post_title,
-                    p.post_content,
                     p.post_excerpt,
                     p.post_date,
                     pm_sku.meta_value AS sku,

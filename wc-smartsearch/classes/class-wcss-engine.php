@@ -269,7 +269,9 @@ class WCSS_Engine {
             }
             $where_conditions[] = '(' . implode(' OR ', $word_or) . ')';
         }
-        $any_word_where = implode(' OR ', $where_conditions);
+        // Use AND between word groups: each search word must match in at least one field.
+        // Single-word queries have just one condition, so AND/OR makes no difference.
+        $any_word_where = implode(' AND ', $where_conditions);
 
         // Category filter
         $cat_join = '';
@@ -691,6 +693,7 @@ class WCSS_Engine {
                     pm_sale.meta_value AS sale_price,
                     pm_stock.meta_value AS stock_status,
                     pm_total_sales.meta_value AS total_sales,
+                    0 AS brand_id,
                     '' AS brand_name
                 FROM {$wpdb->posts} p
                 LEFT JOIN {$wpdb->postmeta} pm_sku ON p.ID = pm_sku.post_id AND pm_sku.meta_key = '_sku'

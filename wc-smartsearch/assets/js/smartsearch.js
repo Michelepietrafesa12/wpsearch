@@ -291,6 +291,7 @@
     }
 
     function renderResults(data) {
+        hideSuggestions();
         clearResults();
         var prods   = data.products || [];
         var banners = data.banners || {};
@@ -785,12 +786,24 @@
             hideSuggestions(); clearResults(); resetFilters(); D.input.focus();
         });
 
-        // Keyboard nav for suggestions
+        // Keyboard nav for suggestions + Enter to search
         D.input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (D.suggestions.classList.contains('active') && _sugIdx >= 0) {
+                    selectSuggestion(_sugIdx);
+                } else {
+                    // Trigger search immediately, cancel debounce
+                    hideSuggestions();
+                    debouncedSearch.cancel();
+                    S.query = D.input.value;
+                    executeSearch(false);
+                }
+                return;
+            }
             if (!D.suggestions.classList.contains('active')) return;
             if (e.key === 'ArrowDown')  { e.preventDefault(); navigateSuggestions(1); }
             else if (e.key === 'ArrowUp') { e.preventDefault(); navigateSuggestions(-1); }
-            else if (e.key === 'Enter' && _sugIdx >= 0) { e.preventDefault(); selectSuggestion(_sugIdx); }
         });
 
         D.input.addEventListener('blur', function () { setTimeout(hideSuggestions, 200); });

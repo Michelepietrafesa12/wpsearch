@@ -728,11 +728,13 @@
 
 /* Product image */
 .wcss-product-image {
+    display: block;
     position: relative;
     width: 100%;
     padding-top: 100%; /* 1:1 aspect ratio */
     background: var(--wcss-gray-100);
     overflow: hidden;
+    text-decoration: none;
 }
 
 .wcss-product-image img {
@@ -809,6 +811,7 @@
     color: var(--wcss-text-primary);
     line-height: 1.4;
     margin: 0;
+    text-decoration: none;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;

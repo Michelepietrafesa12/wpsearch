@@ -190,7 +190,6 @@ class WCSS_Ajax {
                 'sale_price'    => $wc_product->get_sale_price() ? floatval($wc_product->get_sale_price()) : 0,
                 'on_sale'       => $wc_product->is_on_sale(),
                 'price_html'    => $wc_product->get_price_html(),
-                'add_to_cart'   => $wc_product->is_purchasable() && $wc_product->is_in_stock(),
                 'brand'         => '',
                 'brand_id'      => 0,
             ];

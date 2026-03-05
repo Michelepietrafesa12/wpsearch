@@ -850,54 +850,6 @@
 }
 
 /* Add to cart button */
-.wcss-add-to-cart-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--wcss-spacing-sm);
-    width: 100%;
-    padding: var(--wcss-spacing-sm) var(--wcss-spacing-md);
-    margin-top: var(--wcss-spacing-sm);
-    border: none;
-    border-radius: var(--wcss-radius);
-    background: var(--wcss-primary);
-    color: var(--wcss-white);
-    font-family: var(--wcss-font-family);
-    font-size: var(--wcss-font-size-sm);
-    font-weight: 600;
-    cursor: pointer;
-    transition: background var(--wcss-transition-fast), transform var(--wcss-transition-fast);
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
-}
-
-.wcss-add-to-cart-btn:hover {
-    background: var(--wcss-primary-hover);
-    transform: translateY(-1px);
-}
-
-.wcss-add-to-cart-btn:active {
-    transform: translateY(0);
-}
-
-.wcss-add-to-cart-btn:disabled {
-    background: var(--wcss-gray-300);
-    color: var(--wcss-gray-500);
-    cursor: not-allowed;
-    transform: none;
-}
-
-.wcss-add-to-cart-btn svg {
-    width: 16px;
-    height: 16px;
-}
-
-.wcss-add-to-cart-btn.added {
-    background: var(--wcss-accent);
-}
-
-
 /* ==========================================================================
    9. Filters Sidebar (Desktop)
    ========================================================================== */
@@ -1932,11 +1884,6 @@
         font-size: 0.65rem;
     }
 
-    .wcss-add-to-cart-btn {
-        padding: 6px var(--wcss-spacing-sm);
-        font-size: var(--wcss-font-size-xs);
-    }
-
     .wcss-results-header {
         flex-direction: column;
         align-items: flex-start;
@@ -2007,15 +1954,6 @@
 
     .wcss-results-container {
         padding: var(--wcss-spacing-sm);
-    }
-
-    .wcss-add-to-cart-btn span {
-        display: none;
-    }
-
-    .wcss-add-to-cart-btn svg {
-        width: 18px;
-        height: 18px;
     }
 
     .wcss-recommendation-card {
@@ -2232,10 +2170,6 @@
     }
 
     .wcss-search-input {
-        border: 1px solid ButtonText;
-    }
-
-    .wcss-add-to-cart-btn {
         border: 1px solid ButtonText;
     }
 

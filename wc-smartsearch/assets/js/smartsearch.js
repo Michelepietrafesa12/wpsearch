@@ -426,41 +426,8 @@
         }
         info.appendChild(pw);
 
-        var btn = el('button', 'wcss-add-to-cart-btn', { type: 'button' });
-        btn.textContent = I18N.add_to_cart || 'Aggiungi al carrello';
-        btn.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); addToCart(p.id, btn); });
-        info.appendChild(btn);
-
         card.appendChild(info);
         return card;
-    }
-
-    /* ---------------------------------------------------------------
-     * 13. ADD TO CART
-     * ------------------------------------------------------------- */
-    function addToCart(pid, btn) {
-        if (btn.disabled) return;
-        btn.disabled = true;
-        var orig = btn.textContent;
-
-        // Use WooCommerce's wc-ajax endpoint (not admin-ajax.php)
-        var url = P.wc_ajax_url ? P.wc_ajax_url.replace('%%endpoint%%', 'add_to_cart') : AJAX_URL.replace(/\/wp-admin\/admin-ajax\.php$/, '/') + '?wc-ajax=add_to_cart';
-
-        fetch(url, {
-            method: 'POST', credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'product_id=' + encodeURIComponent(pid) + '&quantity=1'
-        }).then(function (r) { return r.json(); }).then(function (data) {
-            if (data.error) { btn.disabled = false; btn.textContent = orig; return; }
-            btn.classList.add('added');
-            btn.textContent = I18N.added || 'Aggiunto!';
-            // Trigger cart fragment refresh via jQuery (WooCommerce listens via jQuery events)
-            if (typeof jQuery !== 'undefined') {
-                jQuery(document.body).trigger('wc_fragment_refresh');
-                if (data.fragments) jQuery(document.body).trigger('added_to_cart', [data.fragments, data.cart_hash, jQuery(btn)]);
-            }
-            setTimeout(function () { btn.disabled = false; btn.classList.remove('added'); btn.textContent = orig; }, 2000);
-        }).catch(function () { btn.disabled = false; btn.textContent = orig; });
     }
 
     /* ---------------------------------------------------------------
@@ -968,13 +935,6 @@
                 pw.appendChild(reg);
             }
             info.appendChild(pw);
-
-            if (withCart) {
-                var btn = el('button', 'wcss-add-to-cart-btn', { type: 'button' });
-                btn.textContent = I18N.add_to_cart || 'Aggiungi al carrello';
-                btn.addEventListener('click', function () { addToCart(p.id, btn); });
-                info.appendChild(btn);
-            }
 
             card.appendChild(info);
             return card;
